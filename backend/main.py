@@ -8,6 +8,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+import sys
+import pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+
 from models import (
     CalculateRequest,
     CalculateResponse,
