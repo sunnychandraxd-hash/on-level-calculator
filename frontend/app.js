@@ -50,6 +50,7 @@
     let chartInstance = null;
     let scenarios = [];
     let portfolioData = [];
+    let uploadedPortfolioRows = null;
     let currentBasis = 'written';
     let rowIdCounter = 0;
 
@@ -196,6 +197,9 @@
 
             const result = await resp.json();
             renderOutputs(result);
+            if (uploadedPortfolioRows && uploadedPortfolioRows.length > 0) {
+                await processPortfolio(uploadedPortfolioRows);
+            }
             return result;
         } catch (e) {
             showErrors([`Network error: ${e.message}. Is the server running?`]);
@@ -419,6 +423,7 @@
                     rows = XLSX.utils.sheet_to_json(sheet);
                 }
                 if (!rows || rows.length === 0) throw new Error('No data found in file.');
+                uploadedPortfolioRows = rows;
                 await processPortfolio(rows);
                 showUploadStatus(`Successfully processed ${rows.length} policies.`, 'success');
             } catch (err) {
@@ -563,6 +568,7 @@
         if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
         dom.auditTrail.innerHTML = '<p class="empty-msg">Calculation audit trail will appear here.</p>';
         dom.validationBox.classList.add('hidden');
+        uploadedPortfolioRows = null;
         dom.portfolioSec.classList.add('hidden');
         dom.portfolioBody.innerHTML = '';
         dom.uploadStatus.classList.add('hidden');
