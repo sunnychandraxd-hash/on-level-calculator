@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>On-Level Premium Calculator — Actuarial Tool</title>
+  <meta name="description" content="Calculate on-level premium using cumulative rate changes, earning patterns, and scenario testing. Built for actuaries." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ───────── HEADER ───────── -->
+  <header id="app-header">
+    <div class="header-inner">
+      <div class="logo-group">
+        <div class="logo-icon">
+          <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="18" stroke="url(#lg)" stroke-width="3"/><path d="M12 28 L20 12 L28 28" stroke="url(#lg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="15" y1="23" x2="25" y2="23" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/><defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#818cf8"/></linearGradient></defs></svg>
+        </div>
+        <div>
+          <h1>On-Level Calculator</h1>
+          <p class="subtitle">Actuarial Premium Analysis Tool</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-reset" class="btn btn-ghost" title="Reset all inputs">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          Reset
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app-main">
+    <!-- ───────── LEFT: INPUTS ───────── -->
+    <section class="panel panel-inputs" id="panel-inputs">
+      <h2 class="panel-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Inputs
+      </h2>
+
+      <!-- Premium & Dates -->
+      <div class="input-grid">
+        <div class="field">
+          <label for="historical-premium">Historical Premium ($)</label>
+          <input type="text" id="historical-premium" inputmode="decimal" placeholder="e.g. 100,000" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="policy-effective-date">Policy Effective Date</label>
+          <input type="date" id="policy-effective-date" />
+        </div>
+        <div class="field">
+          <label for="evaluation-date">Evaluation Date</label>
+          <input type="date" id="evaluation-date" />
+        </div>
+        <div class="field">
+          <label for="policy-term">Policy Term (months)</label>
+          <input type="number" id="policy-term" value="12" min="1" max="120" />
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div class="options-row">
+        <div class="field">
+          <label>Basis</label>
+          <div class="toggle-group" id="basis-toggle">
+            <button class="toggle-btn active" data-value="written">Written</button>
+            <button class="toggle-btn" data-value="earned">Earned</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="earning-pattern">Earning Pattern</label>
+          <select id="earning-pattern">
+            <option value="12-linear">12-Month Linear</option>
+            <option value="24-linear">24-Month Linear</option>
+            <option value="custom">Custom Weights</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Custom Weights (hidden by default) -->
+      <div id="custom-weights-section" class="custom-weights hidden">
+        <label>Custom Monthly Weights (comma-separated, must sum to 1.0)</label>
+        <input type="text" id="custom-weights" placeholder="e.g. 0.10, 0.10, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08" />
+      </div>
+
+      <!-- Rate Change Table -->
+      <div class="rate-table-header">
+        <h3>Rate Changes</h3>
+        <div class="rate-table-actions">
+          <button id="btn-add-row" class="btn btn-sm btn-accent" title="Add rate change">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Row
+          </button>
+          <button id="btn-sort-rows" class="btn btn-sm btn-ghost" title="Sort by date">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/></svg>
+            Sort
+          </button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="rate-table">
+          <thead>
+            <tr>
+              <th>Effective Date</th>
+              <th>Rate Change (%)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rate-table-body">
+            <!-- rows injected by JS -->
+          </tbody>
+        </table>
+      </div>
+      <p id="rate-table-empty" class="empty-msg">No rate changes added yet. Click <strong>Add Row</strong> to begin.</p>
+
+      <!-- CSV/Excel Upload -->
+      <div class="upload-section">
+        <h3>Portfolio Upload</h3>
+        <p class="upload-hint">Upload a CSV or Excel file with columns: <code>HistoricalPremium</code>, <code>PolicyEffectiveDate</code>, <code>EvaluationDate</code>, <code>PolicyTerm</code></p>
+        <label class="upload-drop" id="upload-drop">
+          <input type="file" id="file-upload" accept=".csv,.xlsx,.xls" hidden />
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>Drag &amp; drop or <strong>browse</strong></span>
+        </label>
+        <div id="upload-status" class="upload-status hidden"></div>
+      </div>
+
+      <!-- Calculate -->
+      <button id="btn-calculate" class="btn btn-primary btn-lg">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>
+        Calculate On-Level Premium
+      </button>
+
+      <!-- Validation Errors -->
+      <div id="validation-errors" class="validation-errors hidden"></div>
+    </section>
+
+    <!-- ───────── RIGHT: OUTPUTS ───────── -->
+    <section class="panel panel-outputs" id="panel-outputs">
+      <!-- KPI Cards -->
+      <div class="kpi-row" id="kpi-row">
+        <div class="kpi-card" id="kpi-factor">
+          <span class="kpi-label">On-Level Factor</span>
+          <span class="kpi-value" id="kpi-factor-value">—</span>
+        </div>
+        <div class="kpi-card" id="kpi-premium">
+          <span class="kpi-label">On-Level Premium</span>
+          <span class="kpi-value" id="kpi-premium-value">—</span>
+        </div>
+        <div class="kpi-card" id="kpi-cumulative">
+          <span class="kpi-label">Cumulative Rate Change</span>
+          <span class="kpi-value" id="kpi-cumulative-value">—</span>
+        </div>
+        <div class="kpi-card" id="kpi-adequacy">
+          <span class="kpi-label">Rate Adequacy</span>
+          <span class="kpi-value" id="kpi-adequacy-value">—</span>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-section">
+        <h2 class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Rate Level Over Time
+        </h2>
+        <div class="chart-container">
+          <canvas id="rate-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Rate Level History Table -->
+      <div class="history-section">
+        <h2 class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          Rate Level History
+        </h2>
+        <div class="table-wrap">
+          <table id="history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Rate Change</th>
+                <th>Rate Level</th>
+                <th>Cumulative Change</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body"></tbody>
+          </table>
+        </div>
+        <p id="history-empty" class="empty-msg">Run a calculation to see rate level history.</p>
+      </div>
+
+      <!-- Scenarios -->
+      <div class="scenario-section">
+        <h2 class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+          Scenario Comparison
+        </h2>
+        <div class="scenario-controls">
+          <input type="text" id="scenario-name" placeholder="Scenario name" />
+          <button id="btn-save-scenario" class="btn btn-sm btn-accent">Save Scenario</button>
+          <button id="btn-clear-scenarios" class="btn btn-sm btn-ghost">Clear All</button>
+        </div>
+        <div id="scenario-cards" class="scenario-cards"></div>
+      </div>
+
+      <!-- Audit Trail -->
+      <div class="audit-section">
+        <h2 class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Audit Trail
+        </h2>
+        <div id="audit-trail" class="audit-trail">
+          <p class="empty-msg">Calculation audit trail will appear here.</p>
+        </div>
+      </div>
+
+      <!-- Portfolio Results (hidden until CSV upload) -->
+      <div id="portfolio-section" class="portfolio-section hidden">
+        <h2 class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Portfolio Results
+        </h2>
+        <button id="btn-download-portfolio" class="btn btn-sm btn-accent">Download CSV</button>
+        <div class="table-wrap">
+          <table id="portfolio-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Historical Premium</th>
+                <th>Policy Eff. Date</th>
+                <th>Eval. Date</th>
+                <th>Term</th>
+                <th>On-Level Factor</th>
+                <th>On-Level Premium</th>
+                <th>Adequacy</th>
+              </tr>
+            </thead>
+            <tbody id="portfolio-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="app-footer">
+    <p>&copy; 2026 On-Level Calculator &middot; Actuarial Premium Analysis Tool</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
