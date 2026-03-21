@@ -78,3 +78,47 @@ class PortfolioResultRow(BaseModel):
 
 class PortfolioResponse(BaseModel):
     results: list[PortfolioResultRow]
+
+
+# ── Trend Analysis ──────────────────────────────────────────────────
+
+
+class TrendRequest(BaseModel):
+    baseValue: float = Field(..., gt=0)
+    baseDate: date
+    evaluationDate: date
+    annualTrendRate: float = Field(..., description="Annual trend rate as percentage, e.g. 3.0 for 3%")
+    trendType: str = Field("compound", pattern="^(simple|compound)$")
+
+
+class GrowthPoint(BaseModel):
+    date: str
+    value: float
+
+
+class TrendResponse(BaseModel):
+    trendedValue: float
+    timeDifferenceYears: float
+    totalTrendImpact: float
+    growthCurve: list[GrowthPoint]
+    auditTrail: list[AuditStep]
+
+
+# ── Workflow (Pipeline) ─────────────────────────────────────────────
+
+
+class WorkflowTrendOverrides(BaseModel):
+    annualTrendRate: float = Field(..., description="Annual trend rate as percentage, e.g. 3.0 for 3%")
+    trendType: str = Field("compound", pattern="^(simple|compound)$")
+    evaluationDate: Optional[date] = None
+
+
+class WorkflowRequest(BaseModel):
+    onLevelInput: CalculateRequest
+    trendOverrides: WorkflowTrendOverrides
+
+
+class WorkflowResponse(BaseModel):
+    onLevelResult: CalculateResponse
+    trendResult: TrendResponse
+    finalValue: float
