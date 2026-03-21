@@ -80,15 +80,19 @@ class PortfolioResponse(BaseModel):
     results: list[PortfolioResultRow]
 
 
-# ── Trend Analysis ──────────────────────────────────────────────────
+# ── Loss Trending ───────────────────────────────────────────────────
 
 
-class TrendRequest(BaseModel):
-    baseValue: float = Field(..., gt=0)
-    baseDate: date
-    evaluationDate: date
-    annualTrendRate: float = Field(..., description="Annual trend rate as percentage, e.g. 3.0 for 3%")
-    trendType: str = Field("compound", pattern="^(simple|compound)$")
+class LossTrendRequest(BaseModel):
+    baseValue: float = Field(..., gt=0, description="Historical losses or value to trend")
+    historicalStartDate: date
+    historicalEndDate: date
+    futureStartDate: date
+    policyTermMonths: int = Field(12, ge=1, le=120)
+    currentTrendRate: float = Field(..., description="Current annual trend rate as %, e.g. 3.0")
+    trendMode: str = Field("single", pattern="^(single|two-step)$")
+    projectedTrendRate: Optional[float] = Field(None, description="Projected rate for two-step, as %")
+    latestDataPointDate: Optional[date] = Field(None, description="Split date for two-step trending")
 
 
 class GrowthPoint(BaseModel):
@@ -96,9 +100,14 @@ class GrowthPoint(BaseModel):
     value: float
 
 
-class TrendResponse(BaseModel):
+class LossTrendResponse(BaseModel):
     trendedValue: float
-    timeDifferenceYears: float
+    trendFactor: float
+    trendPeriodYears: float
+    historicalAvgDate: str
+    futureAvgDate: str
+    currentFactor: Optional[float] = None
+    projectedFactor: Optional[float] = None
     totalTrendImpact: float
     growthCurve: list[GrowthPoint]
     auditTrail: list[AuditStep]
@@ -107,18 +116,25 @@ class TrendResponse(BaseModel):
 # ── Workflow (Pipeline) ─────────────────────────────────────────────
 
 
-class WorkflowTrendOverrides(BaseModel):
-    annualTrendRate: float = Field(..., description="Annual trend rate as percentage, e.g. 3.0 for 3%")
-    trendType: str = Field("compound", pattern="^(simple|compound)$")
-    evaluationDate: Optional[date] = None
+class WorkflowTrendConfig(BaseModel):
+    currentTrendRate: float = Field(..., description="Current annual trend rate as %, e.g. 3.0")
+    trendMode: str = Field("single", pattern="^(single|two-step)$")
+    projectedTrendRate: Optional[float] = None
+    latestDataPointDate: Optional[date] = None
+    futureStartDate: Optional[date] = None
+    policyTermMonths: int = Field(12, ge=1, le=120)
+    useCustomDates: bool = Field(False, description="If true, use custom historical dates instead of on-level dates")
+    customHistoricalStart: Optional[date] = None
+    customHistoricalEnd: Optional[date] = None
 
 
 class WorkflowRequest(BaseModel):
     onLevelInput: CalculateRequest
-    trendOverrides: WorkflowTrendOverrides
+    trendConfig: WorkflowTrendConfig
 
 
 class WorkflowResponse(BaseModel):
     onLevelResult: CalculateResponse
-    trendResult: TrendResponse
+    trendResult: LossTrendResponse
     finalValue: float
+

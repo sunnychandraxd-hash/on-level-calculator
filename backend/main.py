@@ -18,16 +18,16 @@ from models import (
     PortfolioRequest,
     PortfolioResponse,
     PortfolioResultRow,
-    TrendRequest,
-    TrendResponse,
+    LossTrendRequest,
+    LossTrendResponse,
     WorkflowRequest,
     WorkflowResponse,
 )
 from engine import calculate, compute_adequacy
-from trend_engine import calculate_trend
+from trend import apply_loss_trend
 
 # ── App ──
-app = FastAPI(title="Actuarial Platform API", version="2.0.0")
+app = FastAPI(title="Actuarial Platform API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -113,25 +113,35 @@ def api_portfolio(req: PortfolioRequest):
     return PortfolioResponse(results=results)
 
 
-@app.post("/api/trend", response_model=TrendResponse)
-def api_trend(req: TrendRequest):
-    """Run a standalone trend analysis calculation."""
-    if req.evaluationDate < req.baseDate:
-        raise HTTPException(400, "Evaluation date must be on or after base date.")
+@app.post("/api/trend", response_model=LossTrendResponse)
+def api_trend(req: LossTrendRequest):
+    """Run an actuarially sound loss trend calculation."""
+    if req.historicalEndDate < req.historicalStartDate:
+        raise HTTPException(400, "Historical end date must be on or after start date.")
 
-    result = calculate_trend(
+    if req.trendMode == "two-step":
+        if req.projectedTrendRate is None:
+            raise HTTPException(400, "Projected trend rate is required for two-step trending.")
+        if req.latestDataPointDate is None:
+            raise HTTPException(400, "Latest data point date is required for two-step trending.")
+
+    result = apply_loss_trend(
         base_value=req.baseValue,
-        base_date=req.baseDate,
-        eval_date=req.evaluationDate,
-        annual_rate=req.annualTrendRate,
-        trend_type=req.trendType,
+        historical_start=req.historicalStartDate,
+        historical_end=req.historicalEndDate,
+        future_start=req.futureStartDate,
+        policy_term_months=req.policyTermMonths,
+        current_trend_rate=req.currentTrendRate,
+        projected_trend_rate=req.projectedTrendRate,
+        latest_data_point=req.latestDataPointDate,
+        trend_mode=req.trendMode,
     )
     return result
 
 
 @app.post("/api/workflow", response_model=WorkflowResponse)
 def api_workflow(req: WorkflowRequest):
-    """Run a chained pipeline: On-Level → Trend → Final Value."""
+    """Run a chained pipeline: On-Level → Loss Trend → Final Value."""
     # Step 1: On-Level calculation
     ol_req = req.onLevelInput
     if ol_req.evaluationDate < ol_req.policyEffectiveDate:
@@ -149,14 +159,34 @@ def api_workflow(req: WorkflowRequest):
         raw_rate_changes=raw_changes,
     )
 
-    # Step 2: Trend calculation using on-level output
-    trend_eval = req.trendOverrides.evaluationDate or ol_req.evaluationDate
-    trend_result = calculate_trend(
+    # Step 2: Derive trend dates from on-level inputs or custom dates
+    tc = req.trendConfig
+    if tc.useCustomDates and tc.customHistoricalStart and tc.customHistoricalEnd:
+        hist_start = tc.customHistoricalStart
+        hist_end = tc.customHistoricalEnd
+    else:
+        hist_start = ol_req.policyEffectiveDate
+        hist_end = ol_req.evaluationDate
+
+    future_start = tc.futureStartDate or ol_req.evaluationDate
+
+    # Validate two-step
+    if tc.trendMode == "two-step":
+        if tc.projectedTrendRate is None:
+            raise HTTPException(400, "Projected trend rate is required for two-step trending.")
+        if tc.latestDataPointDate is None:
+            raise HTTPException(400, "Latest data point date is required for two-step trending.")
+
+    trend_result = apply_loss_trend(
         base_value=ol_result["onLevelPremium"],
-        base_date=ol_req.policyEffectiveDate,
-        eval_date=trend_eval,
-        annual_rate=req.trendOverrides.annualTrendRate,
-        trend_type=req.trendOverrides.trendType,
+        historical_start=hist_start,
+        historical_end=hist_end,
+        future_start=future_start,
+        policy_term_months=tc.policyTermMonths,
+        current_trend_rate=tc.currentTrendRate,
+        projected_trend_rate=tc.projectedTrendRate,
+        latest_data_point=tc.latestDataPointDate,
+        trend_mode=tc.trendMode,
     )
 
     return WorkflowResponse(

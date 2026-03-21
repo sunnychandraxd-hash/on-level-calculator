@@ -1,6 +1,6 @@
 /* ────────────────────────────────────────────
    Actuarial Platform — Frontend (API Client)
-   Multi-module: On-Level | Trend | Workflow
+   Multi-module: On-Level | Loss Trend | Workflow
    ──────────────────────────────────────────── */
 (() => {
     'use strict';
@@ -17,8 +17,8 @@
         workflowResult: null,  // last workflow result
         // Cached values for interlinking
         onLevelPremium: null,
-        policyEffectiveDate: null,
-        evaluationDate: null,
+        historicalStartDate: null,
+        historicalEndDate: null,
     };
 
     // ══════════════════════════════════════════
@@ -63,20 +63,32 @@
         btnDownload: $('#btn-download-portfolio'),
     };
 
-    // Trend DOM
+    // Trend DOM (Loss Trending)
     const tDom = {
         baseValue: $('#trend-base-value'),
-        baseDate: $('#trend-base-date'),
-        evalDate: $('#trend-eval-date'),
-        annualRate: $('#trend-annual-rate'),
-        typeToggle: $('#trend-type-toggle'),
+        histStart: $('#trend-hist-start'),
+        histEnd: $('#trend-hist-end'),
+        futureStart: $('#trend-future-start'),
+        futureTerm: $('#trend-future-term'),
+        modeToggle: $('#trend-mode-toggle'),
+        currentRate: $('#trend-current-rate'),
+        twoStepFields: $('#two-step-fields'),
+        projectedRate: $('#trend-projected-rate'),
+        latestData: $('#trend-latest-data'),
         useOnLevelToggle: $('#use-onlevel-toggle'),
         interlinkStatus: $('#interlink-status'),
         btnCalculate: $('#btn-calculate-trend'),
         validationBox: $('#trend-validation-errors'),
+        // KPIs
         kpiTrended: $('#trend-kpi-trended'),
+        kpiFactor: $('#trend-kpi-factor'),
         kpiTime: $('#trend-kpi-time'),
         kpiImpact: $('#trend-kpi-impact'),
+        kpiHistAvg: $('#trend-kpi-hist-avg'),
+        kpiFutureAvg: $('#trend-kpi-future-avg'),
+        twoStepKpiRow: $('#two-step-kpi-row'),
+        kpiCurrentFactor: $('#trend-kpi-current-factor'),
+        kpiProjectedFactor: $('#trend-kpi-projected-factor'),
         kpiRow: $('#trend-kpi-row'),
         chartCanvas: $('#trend-chart'),
         auditTrail: $('#trend-audit-trail'),
@@ -84,6 +96,7 @@
 
     // Workflow DOM
     const wDom = {
+        // Step 1: On-Level
         premium: $('#wf-premium'),
         policyDate: $('#wf-policy-date'),
         evalDate: $('#wf-eval-date'),
@@ -92,10 +105,22 @@
         earningSelect: $('#wf-earning-pattern'),
         rateTableBody: $('#wf-rate-table-body'),
         btnAddRow: $('#wf-btn-add-row'),
-        trendRate: $('#wf-trend-rate'),
-        trendTypeToggle: $('#wf-trend-type-toggle'),
+        // Step 2: Loss Trend Config
+        customDatesToggle: $('#wf-custom-dates-toggle'),
+        dateSourceStatus: $('#wf-date-source-status'),
+        customDatesFields: $('#wf-custom-dates'),
+        customHistStart: $('#wf-custom-hist-start'),
+        customHistEnd: $('#wf-custom-hist-end'),
+        futureStart: $('#wf-future-start'),
+        futureTerm: $('#wf-future-term'),
+        modeToggle: $('#wf-trend-mode-toggle'),
+        currentRate: $('#wf-trend-rate'),
+        twoStepFields: $('#wf-two-step-fields'),
+        projectedRate: $('#wf-projected-rate'),
+        latestData: $('#wf-latest-data'),
         btnRun: $('#btn-run-workflow'),
         validationBox: $('#wf-validation-errors'),
+        // Results
         olPremium: $('#wf-ol-premium'),
         olFactor: $('#wf-ol-factor'),
         finalValue: $('#wf-final-value'),
@@ -119,11 +144,14 @@
     let uploadedPortfolioRows = null;
     let currentBasis = 'written';
     let rowIdCounter = 0;
-    let currentTrendType = 'compound';
+    
+    // Trend state
+    let tMode = 'single';
+    // Workflow state
     let wfRateRows = [];
     let wfRowIdCounter = 0;
     let wfBasis = 'written';
-    let wfTrendType = 'compound';
+    let wfTMode = 'single';
 
     // ── Helpers ──
     const parseNum = (v) => {
@@ -145,17 +173,15 @@
             btn.classList.add('active');
             $$('.tab-panel').forEach(p => p.classList.remove('active'));
             $(`#tab-panel-${tab}`).classList.add('active');
-            // Update interlink status when switching to trend tab
             if (tab === 'trend') updateInterlinkStatus();
         });
     });
 
 
     // ══════════════════════════════════════════
-    //  ON-LEVELING MODULE (original)
+    //  ON-LEVELING MODULE
     // ══════════════════════════════════════════
 
-    // ── Basis Toggle ──
     dom.basisToggle.addEventListener('click', (e) => {
         const btn = e.target.closest('.toggle-btn');
         if (!btn) return;
@@ -168,7 +194,6 @@
         dom.customSection.classList.toggle('hidden', dom.earningSelect.value !== 'custom');
     });
 
-    // ── Rate Change Table ──
     function addRateRow(date = '', pct = '') {
         const id = ++rowIdCounter;
         rateRows.push({ id, date, pct });
@@ -187,7 +212,7 @@
             const tr = document.createElement('tr');
             tr.innerHTML = `
         <td><input type="date" class="rc-date" data-id="${row.id}" value="${row.date}" /></td>
-        <td><input type="text" class="rc-pct" data-id="${row.id}" value="${row.pct}" placeholder="e.g. 5 or -3" inputmode="decimal" /></td>
+        <td><input type="text" class="rc-pct" data-id="${row.id}" value="${row.pct}" placeholder="e.g. 5" inputmode="decimal" /></td>
         <td><button class="btn-remove-row" data-id="${row.id}" title="Remove">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button></td>`;
@@ -209,13 +234,11 @@
     });
 
     dom.btnAddRow.addEventListener('click', () => addRateRow());
-
     dom.btnSortRows.addEventListener('click', () => {
         rateRows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         renderRateTable();
     });
 
-    // ── Validation ──
     function validate() {
         const errors = [];
         const premium = parseNum(dom.premium.value);
@@ -241,7 +264,6 @@
         el.innerHTML = '<ul>' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
     }
 
-    // ── Build API Payload ──
     function buildPayload() {
         const customRaw = dom.customWeights.value.trim();
         let customWeights = null;
@@ -262,7 +284,6 @@
         };
     }
 
-    // ── Calculate On-Level ──
     async function calculate() {
         const errors = validate();
         showErrors(dom.validationBox, errors);
@@ -288,19 +309,18 @@
             const result = await resp.json();
             renderOutputs(result);
 
-            // Save to shared state
             sharedState.onLevelResult = result;
             sharedState.onLevelPremium = result.onLevelPremium;
-            sharedState.policyEffectiveDate = dom.policyDate.value;
-            sharedState.evaluationDate = dom.evalDate.value;
+            sharedState.historicalStartDate = dom.policyDate.value;
+            sharedState.historicalEndDate = dom.evalDate.value;
             updateSummaryPanel();
-
+            
             if (uploadedPortfolioRows && uploadedPortfolioRows.length > 0) {
                 await processPortfolio(uploadedPortfolioRows);
             }
             return result;
         } catch (e) {
-            showErrors(dom.validationBox, [`Network error: ${e.message}. Is the server running?`]);
+            showErrors(dom.validationBox, [`Network error: ${e.message}`]);
             return null;
         } finally {
             dom.btnCalculate.disabled = false;
@@ -310,21 +330,17 @@
         }
     }
 
-    // ── Render Outputs ──
     function renderOutputs(result) {
         dom.kpiFactor.textContent = fmtFactor(result.onLevelFactor);
         dom.kpiPremium.textContent = fmtCurrency(result.onLevelPremium);
         dom.kpiCumulative.textContent = fmtPct(result.cumulativeChange);
         dom.kpiCumulative.className = 'kpi-value ' + (result.cumulativeChange >= 0 ? 'val-pos' : 'val-neg');
-
         const adeq = result.adequacy;
         dom.kpiAdequacy.textContent = adeq.label + ' (' + fmtPct(adeq.value) + ')';
         dom.kpiAdequacy.className = 'kpi-value ' + (adeq.direction === 'up' ? 'val-neg' : adeq.direction === 'down' ? 'val-pos' : '');
-
+        
         dom.kpiRow.querySelectorAll('.kpi-card').forEach(card => {
-            card.classList.remove('highlight');
-            void card.offsetWidth;
-            card.classList.add('highlight');
+            card.classList.remove('highlight'); void card.offsetWidth; card.classList.add('highlight');
         });
 
         renderHistoryTable(result.rateLevelHistory);
@@ -337,86 +353,30 @@
         dom.historyEmpty.classList.add('hidden');
         history.forEach(h => {
             const tr = document.createElement('tr');
-            const changeCls = h.rateChange > 0 ? 'val-pos' : h.rateChange < 0 ? 'val-neg' : '';
-            const cumCls = h.cumulativeChange > 0 ? 'val-pos' : h.cumulativeChange < 0 ? 'val-neg' : '';
             tr.innerHTML = `
         <td>${h.dateStr}</td>
-        <td class="${changeCls}">${h.dateStr === 'Base' ? '—' : fmtPct(h.rateChange)}</td>
+        <td class="${h.rateChange > 0 ? 'val-pos' : h.rateChange < 0 ? 'val-neg' : ''}">${h.dateStr === 'Base' ? '—' : fmtPct(h.rateChange)}</td>
         <td>${fmtFactor(h.rateLevel)}</td>
-        <td class="${cumCls}">${fmtPct(h.cumulativeChange)}</td>`;
+        <td class="${h.cumulativeChange > 0 ? 'val-pos' : h.cumulativeChange < 0 ? 'val-neg' : ''}">${fmtPct(h.cumulativeChange)}</td>`;
             dom.historyBody.appendChild(tr);
         });
     }
 
     function renderChart(result) {
         const history = result.rateLevelHistory.filter(h => h.dateStr !== 'Base');
-        if (history.length === 0) {
-            if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-            return;
-        }
+        if (history.length === 0) { if (chartInstance) chartInstance.destroy(); return; }
         const labels = history.map(h => new Date(h.dateStr));
         const data = history.map(h => h.rateLevel);
 
         if (chartInstance) chartInstance.destroy();
-
         const ctx = dom.chartCanvas.getContext('2d');
         const gradient = ctx.createLinearGradient(0, 0, 0, 280);
-        gradient.addColorStop(0, 'rgba(56,189,248,.25)');
-        gradient.addColorStop(1, 'rgba(56,189,248,.02)');
+        gradient.addColorStop(0, 'rgba(56,189,248,.25)'); gradient.addColorStop(1, 'rgba(56,189,248,.02)');
 
         chartInstance = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Rate Level',
-                    data,
-                    borderColor: '#38bdf8',
-                    backgroundColor: gradient,
-                    borderWidth: 2.5,
-                    pointBackgroundColor: '#38bdf8',
-                    pointBorderColor: '#0b0f1a',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    fill: true,
-                    tension: 0.25,
-                    stepped: 'before',
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(17,24,39,.92)',
-                        titleColor: '#e2e8f0',
-                        bodyColor: '#94a3b8',
-                        borderColor: 'rgba(255,255,255,.1)',
-                        borderWidth: 1,
-                        padding: 10,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: (ctx) => `Rate Level: ${ctx.parsed.y.toFixed(4)}`,
-                        }
-                    },
-                },
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: { unit: 'month', tooltipFormat: 'MMM yyyy' },
-                        grid: { color: 'rgba(255,255,255,.05)' },
-                        ticks: { color: '#64748b', font: { size: 11 } },
-                    },
-                    y: {
-                        grid: { color: 'rgba(255,255,255,.05)' },
-                        ticks: { color: '#64748b', font: { size: 11 }, callback: v => v.toFixed(2) },
-                        beginAtZero: false,
-                    }
-                }
-            }
+            data: { labels, datasets: [{ label: 'Rate Level', data, borderColor: '#38bdf8', backgroundColor: gradient, borderWidth: 2.5, pointBackgroundColor: '#38bdf8', pointBorderColor: '#0b0f1a', pointBorderWidth: 2, pointRadius: 4, fill: true, tension: 0.25, stepped: 'before', }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { type: 'time', time: { unit: 'month' } } } }
         });
     }
 
@@ -432,318 +392,20 @@
         });
     }
 
-    // ── Scenarios ──
-    function getCurrentInputs() {
-        return {
-            premium: dom.premium.value,
-            policyDate: dom.policyDate.value,
-            evalDate: dom.evalDate.value,
-            policyTerm: dom.policyTerm.value,
-            basis: currentBasis,
-            earningPattern: dom.earningSelect.value,
-            customWeights: dom.customWeights.value,
-            rateRows: rateRows.map(r => ({ date: r.date, pct: r.pct })),
-        };
-    }
-
-    function loadInputs(inputs) {
-        dom.premium.value = inputs.premium;
-        dom.policyDate.value = inputs.policyDate;
-        dom.evalDate.value = inputs.evalDate;
-        dom.policyTerm.value = inputs.policyTerm;
-        currentBasis = inputs.basis;
-        dom.basisToggle.querySelectorAll('.toggle-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.value === currentBasis);
-        });
-        dom.earningSelect.value = inputs.earningPattern;
-        dom.customSection.classList.toggle('hidden', inputs.earningPattern !== 'custom');
-        dom.customWeights.value = inputs.customWeights;
-        rateRows = inputs.rateRows.map(r => ({ id: ++rowIdCounter, date: r.date, pct: r.pct }));
-        renderRateTable();
-    }
-
-    dom.btnSaveScen.addEventListener('click', async () => {
-        const name = dom.scenarioName.value.trim() || `Scenario ${scenarios.length + 1}`;
-        const result = await calculate();
-        if (!result) return;
-        scenarios.push({
-            name,
-            inputs: getCurrentInputs(),
-            factor: result.onLevelFactor,
-            premium: result.onLevelPremium,
-            cumulativeChange: result.cumulativeChange,
-            adequacy: result.adequacy,
-        });
-        dom.scenarioName.value = '';
-        renderScenarios();
-    });
-
-    dom.btnClearScen.addEventListener('click', () => { scenarios = []; renderScenarios(); });
-
-    function renderScenarios() {
-        dom.scenarioCards.innerHTML = '';
-        scenarios.forEach((sc, i) => {
-            const card = document.createElement('div');
-            card.className = 'scenario-card';
-            card.innerHTML = `
-        <button class="btn-delete-scenario" data-idx="${i}" title="Delete">✕</button>
-        <h4>${sc.name}</h4>
-        <div class="sc-row"><span>On-Level Factor</span><span class="sc-val">${fmtFactor(sc.factor)}</span></div>
-        <div class="sc-row"><span>On-Level Premium</span><span class="sc-val">${fmtCurrency(sc.premium)}</span></div>
-        <div class="sc-row"><span>Cumulative Change</span><span class="sc-val ${sc.cumulativeChange >= 0 ? 'val-pos' : 'val-neg'}">${fmtPct(sc.cumulativeChange)}</span></div>
-        <div class="sc-row"><span>Adequacy</span><span class="sc-val">${sc.adequacy.label}</span></div>
-        <button class="btn btn-sm btn-accent btn-load-scenario" data-idx="${i}">Load</button>`;
-            dom.scenarioCards.appendChild(card);
-        });
-    }
-
-    dom.scenarioCards.addEventListener('click', async (e) => {
-        const loadBtn = e.target.closest('.btn-load-scenario');
-        if (loadBtn) { loadInputs(scenarios[parseInt(loadBtn.dataset.idx)]); await calculate(); return; }
-        const delBtn = e.target.closest('.btn-delete-scenario');
-        if (delBtn) { scenarios.splice(parseInt(delBtn.dataset.idx), 1); renderScenarios(); }
-    });
-
-    // ── CSV/Excel Upload → Portfolio API ──
-    function handleFileUpload(file) {
-        if (!file) return;
-        const ext = file.name.split('.').pop().toLowerCase();
-        const reader = new FileReader();
-
-        reader.onload = async (e) => {
-            try {
-                let rows;
-                if (ext === 'csv') {
-                    rows = parseCSV(e.target.result);
-                } else {
-                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                    const sheet = wb.Sheets[wb.SheetNames[0]];
-                    rows = XLSX.utils.sheet_to_json(sheet);
-                }
-                if (!rows || rows.length === 0) throw new Error('No data found in file.');
-                uploadedPortfolioRows = rows;
-                await processPortfolio(rows);
-                showUploadStatus(`Successfully processed ${rows.length} policies.`, 'success');
-            } catch (err) {
-                showUploadStatus('Error: ' + err.message, 'error');
-            }
-        };
-
-        if (ext === 'csv') reader.readAsText(file);
-        else reader.readAsArrayBuffer(file);
-    }
-
-    function parseCSV(text) {
-        const lines = text.trim().split(/\r?\n/);
-        if (lines.length < 2) return [];
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-        return lines.slice(1).map(line => {
-            const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-            const obj = {};
-            headers.forEach((h, i) => obj[h] = vals[i]);
-            return obj;
-        });
-    }
-
-    function normalizeExcelDate(val) {
-        if (!val) return '';
-        if (typeof val === 'number' || /^\d{5}$/.test(String(val).trim())) {
-            const serial = typeof val === 'number' ? val : parseInt(val);
-            const utcDays = Math.floor(serial - 25569);
-            const d = new Date(utcDays * 86400000);
-            return d.toISOString().slice(0, 10);
-        }
-        return String(val).trim();
-    }
-
-    async function processPortfolio(rows) {
-        const rateChanges = rateRows
-            .filter(r => r.date && r.pct !== '')
-            .map(r => ({ date: r.date, pct: parseNum(r.pct) }));
-
-        const policies = rows.map(row => {
-            const prem = parseNum(row.HistoricalPremium || row.historicalpremium || row.Premium || row.premium || 0);
-            const polDate = normalizeExcelDate(row.PolicyEffectiveDate || row.policyeffectivedate || row.PolicyDate || row.policydate || '');
-            const evDate = normalizeExcelDate(row.EvaluationDate || row.evaluationdate || row.EvalDate || row.evaldate || '');
-            const term = parseInt(row.PolicyTerm || row.policyterm || row.Term || row.term || 12) || 12;
-            return { historicalPremium: prem, policyEffectiveDate: polDate, evaluationDate: evDate, policyTerm: term };
-        });
-
-        const customRaw = dom.customWeights.value.trim();
-        let customWeights = null;
-        if (currentBasis === 'earned' && dom.earningSelect.value === 'custom' && customRaw) {
-            customWeights = customRaw.split(',').map(s => parseFloat(s.trim()));
-        }
-
-        try {
-            const resp = await fetch('/api/portfolio', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    basis: currentBasis,
-                    earningPattern: dom.earningSelect.value,
-                    customWeights,
-                    rateChanges,
-                    policies,
-                }),
-            });
-            if (!resp.ok) { const err = await resp.json(); throw new Error(err.detail || 'Server error'); }
-            const data = await resp.json();
-            portfolioData = data.results;
-            renderPortfolio();
-        } catch (e) {
-            showUploadStatus('Error: ' + e.message, 'error');
-        }
-    }
-
-    function renderPortfolio() {
-        dom.portfolioSec.classList.remove('hidden');
-        dom.portfolioBody.innerHTML = '';
-        portfolioData.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-        <td>${p.idx}</td>
-        <td>${fmtCurrency(p.historicalPremium)}</td>
-        <td>${p.policyEffectiveDate}</td>
-        <td>${p.evaluationDate}</td>
-        <td>${p.policyTerm}</td>
-        <td>${p.onLevelFactor ? fmtFactor(p.onLevelFactor) : 'Error'}</td>
-        <td>${p.onLevelPremium ? fmtCurrency(p.onLevelPremium) : 'Error'}</td>
-        <td>${p.adequacy}</td>`;
-            dom.portfolioBody.appendChild(tr);
-        });
-    }
-
-    function showUploadStatus(msg, type) {
-        dom.uploadStatus.classList.remove('hidden', 'success', 'error');
-        dom.uploadStatus.classList.add(type);
-        dom.uploadStatus.textContent = msg;
-    }
-
-    dom.fileUpload.addEventListener('change', (e) => handleFileUpload(e.target.files[0]));
-    dom.uploadDrop.addEventListener('dragover', (e) => { e.preventDefault(); dom.uploadDrop.classList.add('drag-over'); });
-    dom.uploadDrop.addEventListener('dragleave', () => dom.uploadDrop.classList.remove('drag-over'));
-    dom.uploadDrop.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dom.uploadDrop.classList.remove('drag-over');
-        if (e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]);
-    });
-
-    dom.btnDownload.addEventListener('click', () => {
-        if (!portfolioData.length) return;
-        const headers = ['#', 'HistoricalPremium', 'PolicyEffectiveDate', 'EvaluationDate', 'PolicyTerm', 'OnLevelFactor', 'OnLevelPremium', 'Adequacy'];
-        const csvRows = [headers.join(',')];
-        portfolioData.forEach(p => {
-            csvRows.push([p.idx, p.historicalPremium, p.policyEffectiveDate, p.evaluationDate, p.policyTerm, p.onLevelFactor.toFixed(6), p.onLevelPremium.toFixed(2), `"${p.adequacy}"`].join(','));
-        });
-        const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'portfolio_on_level_results.csv';
-        a.click();
-    });
-
-    // ── Reset ──
-    dom.btnReset.addEventListener('click', () => {
-        // On-Level
-        dom.premium.value = '';
-        dom.policyDate.value = '';
-        dom.evalDate.value = '';
-        dom.policyTerm.value = '12';
-        currentBasis = 'written';
-        dom.basisToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.value === 'written'));
-        dom.earningSelect.value = '12-linear';
-        dom.customSection.classList.add('hidden');
-        dom.customWeights.value = '';
-        rateRows = [];
-        renderRateTable();
-        dom.kpiFactor.textContent = '—';
-        dom.kpiPremium.textContent = '—';
-        dom.kpiCumulative.textContent = '—'; dom.kpiCumulative.className = 'kpi-value';
-        dom.kpiAdequacy.textContent = '—'; dom.kpiAdequacy.className = 'kpi-value';
-        dom.historyBody.innerHTML = '';
-        dom.historyEmpty.classList.remove('hidden');
-        if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
-        dom.auditTrail.innerHTML = '<p class="empty-msg">Calculation audit trail will appear here.</p>';
-        dom.validationBox.classList.add('hidden');
-        uploadedPortfolioRows = null;
-        dom.portfolioSec.classList.add('hidden');
-        dom.portfolioBody.innerHTML = '';
-        dom.uploadStatus.classList.add('hidden');
-
-        // Trend
-        tDom.baseValue.value = '';
-        tDom.baseDate.value = '';
-        tDom.evalDate.value = '';
-        tDom.annualRate.value = '';
-        currentTrendType = 'compound';
-        tDom.typeToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.value === 'compound'));
-        tDom.useOnLevelToggle.checked = false;
-        handleInterlinkToggle();
-        tDom.kpiTrended.textContent = '—';
-        tDom.kpiTime.textContent = '—';
-        tDom.kpiImpact.textContent = '—';
-        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
-        tDom.auditTrail.innerHTML = '<p class="empty-msg">Trend audit trail will appear here.</p>';
-        tDom.validationBox.classList.add('hidden');
-
-        // Workflow
-        wDom.premium.value = '';
-        wDom.policyDate.value = '';
-        wDom.evalDate.value = '';
-        wDom.policyTerm.value = '12';
-        wfBasis = 'written';
-        wDom.basisToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.value === 'written'));
-        wDom.trendRate.value = '';
-        wfTrendType = 'compound';
-        wDom.trendTypeToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.value === 'compound'));
-        wfRateRows = [];
-        renderWfRateTable();
-        wDom.olPremium.textContent = '—';
-        wDom.olFactor.textContent = 'Factor: —';
-        wDom.finalValue.textContent = '—';
-        wDom.trendImpact.textContent = 'Impact: —';
-        wDom.auditTrail.innerHTML = '<p class="empty-msg">Run the workflow to see the combined audit trail.</p>';
-        wDom.validationBox.classList.add('hidden');
-        resetPipelineSteps();
-
-        // Shared state
-        sharedState.onLevelResult = null;
-        sharedState.trendResult = null;
-        sharedState.workflowResult = null;
-        sharedState.onLevelPremium = null;
-        sharedState.policyEffectiveDate = null;
-        sharedState.evaluationDate = null;
-        updateSummaryPanel();
-    });
-
-    // ── Events ──
-    dom.btnCalculate.addEventListener('click', calculate);
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.target.closest('table') && !e.target.closest('.scenario-controls')) {
-            // Determine which tab is active
-            const activePanel = document.querySelector('.tab-panel.active');
-            if (activePanel && activePanel.id === 'tab-panel-onlevel') calculate();
-            else if (activePanel && activePanel.id === 'tab-panel-trend') calculateTrend();
-            else if (activePanel && activePanel.id === 'tab-panel-workflow') runWorkflow();
-        }
-    });
-
 
     // ══════════════════════════════════════════
-    //  TREND ANALYSIS MODULE
+    //  LOSS TRENDING MODULE (NEW)
     // ══════════════════════════════════════════
 
-    // Trend Type Toggle
-    tDom.typeToggle.addEventListener('click', (e) => {
+    tDom.modeToggle.addEventListener('click', (e) => {
         const btn = e.target.closest('.toggle-btn');
         if (!btn) return;
-        tDom.typeToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        tDom.modeToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        currentTrendType = btn.dataset.value;
+        tMode = btn.dataset.value;
+        tDom.twoStepFields.classList.toggle('hidden', tMode !== 'two-step');
     });
 
-    // ── Interlink: "Use On-Level Result" ──
     function updateInterlinkStatus() {
         if (sharedState.onLevelResult) {
             tDom.interlinkStatus.textContent = `Available: ${fmtCurrency(sharedState.onLevelPremium)}`;
@@ -754,56 +416,49 @@
         }
     }
 
-    function handleInterlinkToggle() {
-        const checked = tDom.useOnLevelToggle.checked;
-        if (checked && sharedState.onLevelResult) {
-            tDom.baseValue.value = sharedState.onLevelPremium.toFixed(2);
-            tDom.baseDate.value = sharedState.policyEffectiveDate;
-            tDom.evalDate.value = sharedState.evaluationDate;
-            tDom.baseValue.classList.add('interlinked');
-            tDom.baseDate.classList.add('interlinked');
-            tDom.evalDate.classList.add('interlinked');
-            tDom.baseValue.readOnly = true;
-            tDom.baseDate.readOnly = true;
-            tDom.evalDate.readOnly = true;
-        } else {
-            tDom.baseValue.classList.remove('interlinked');
-            tDom.baseDate.classList.remove('interlinked');
-            tDom.evalDate.classList.remove('interlinked');
-            tDom.baseValue.readOnly = false;
-            tDom.baseDate.readOnly = false;
-            tDom.evalDate.readOnly = false;
-            if (checked && !sharedState.onLevelResult) {
-                tDom.useOnLevelToggle.checked = false;
-            }
-        }
-    }
-
     tDom.useOnLevelToggle.addEventListener('change', () => {
-        if (tDom.useOnLevelToggle.checked && !sharedState.onLevelResult) {
+        const checked = tDom.useOnLevelToggle.checked;
+        if (checked && !sharedState.onLevelResult) {
             tDom.useOnLevelToggle.checked = false;
-            showErrors(tDom.validationBox, ['Run an On-Leveling calculation first to use its result.']);
+            showErrors(tDom.validationBox, ['Run an On-Leveling calculation first.']);
             return;
         }
-        handleInterlinkToggle();
+        if (checked) {
+            tDom.baseValue.value = sharedState.onLevelPremium.toFixed(2);
+            tDom.histStart.value = sharedState.historicalStartDate;
+            tDom.histEnd.value = sharedState.historicalEndDate;
+            [tDom.baseValue, tDom.histStart, tDom.histEnd].forEach(el => { el.classList.add('interlinked'); el.readOnly = true; });
+        } else {
+            [tDom.baseValue, tDom.histStart, tDom.histEnd].forEach(el => { el.classList.remove('interlinked'); el.readOnly = false; });
+        }
     });
 
-    // ── Trend Validation ──
     function validateTrend() {
         const errors = [];
         const val = parseNum(tDom.baseValue.value);
         if (isNaN(val) || val <= 0) errors.push('Base Value must be a positive number.');
-        if (!tDom.baseDate.value) errors.push('Base Date is required.');
-        if (!tDom.evalDate.value) errors.push('Evaluation Date is required.');
-        const rate = parseNum(tDom.annualRate.value);
-        if (isNaN(rate)) errors.push('Annual Trend Rate must be a valid number.');
-        if (tDom.baseDate.value && tDom.evalDate.value && tDom.evalDate.value < tDom.baseDate.value) {
-            errors.push('Evaluation Date must be on or after Base Date.');
+        if (!tDom.histStart.value) errors.push('Historical Period Start is required.');
+        if (!tDom.histEnd.value) errors.push('Historical Period End is required.');
+        if (!tDom.futureStart.value) errors.push('Future Effective Date is required.');
+        
+        const term = parseInt(tDom.futureTerm.value);
+        if (isNaN(term) || term < 1) errors.push('Policy Term must be at least 1 month.');
+        
+        const crate = parseNum(tDom.currentRate.value);
+        if (isNaN(crate)) errors.push('Current Trend Rate is required.');
+
+        if (tMode === 'two-step') {
+            const prate = parseNum(tDom.projectedRate.value);
+            if (isNaN(prate)) errors.push('Projected Trend Rate is required for two-step trending.');
+            if (!tDom.latestData.value) errors.push('Latest Data Point Date is required for two-step trending.');
+        }
+
+        if (tDom.histStart.value && tDom.histEnd.value && tDom.histEnd.value <= tDom.histStart.value) {
+            errors.push('Historical Period End must be after Start Date.');
         }
         return errors;
     }
 
-    // ── Calculate Trend ──
     async function calculateTrend() {
         const errors = validateTrend();
         showErrors(tDom.validationBox, errors);
@@ -813,16 +468,25 @@
         tDom.btnCalculate.textContent = 'Calculating…';
 
         try {
+            const payload = {
+                baseValue: parseNum(tDom.baseValue.value),
+                historicalStartDate: tDom.histStart.value,
+                historicalEndDate: tDom.histEnd.value,
+                futureStartDate: tDom.futureStart.value,
+                policyTermMonths: parseInt(tDom.futureTerm.value),
+                currentTrendRate: parseNum(tDom.currentRate.value),
+                trendMode: tMode,
+            };
+
+            if (tMode === 'two-step') {
+                payload.projectedTrendRate = parseNum(tDom.projectedRate.value);
+                payload.latestDataPointDate = tDom.latestData.value;
+            }
+
             const resp = await fetch('/api/trend', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    baseValue: parseNum(tDom.baseValue.value),
-                    baseDate: tDom.baseDate.value,
-                    evaluationDate: tDom.evalDate.value,
-                    annualTrendRate: parseNum(tDom.annualRate.value),
-                    trendType: currentTrendType,
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (!resp.ok) {
@@ -841,24 +505,31 @@
             return null;
         } finally {
             tDom.btnCalculate.disabled = false;
-            tDom.btnCalculate.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Calculate Trend`;
+            tDom.btnCalculate.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Calculate Loss Trend`;
         }
     }
 
     tDom.btnCalculate.addEventListener('click', calculateTrend);
 
-    // ── Render Trend Outputs ──
     function renderTrendOutputs(result) {
         tDom.kpiTrended.textContent = fmtCurrency(result.trendedValue);
-        tDom.kpiTime.textContent = result.timeDifferenceYears.toFixed(2) + ' yrs';
+        tDom.kpiFactor.textContent = fmtFactor(result.trendFactor);
+        tDom.kpiTime.textContent = result.trendPeriodYears.toFixed(2) + ' yrs';
         tDom.kpiImpact.textContent = fmtPct(result.totalTrendImpact);
+        
+        tDom.kpiHistAvg.textContent = result.historicalAvgDate;
+        tDom.kpiFutureAvg.textContent = result.futureAvgDate;
+
+        if (tMode === 'two-step') {
+            tDom.twoStepKpiRow.classList.remove('hidden');
+            tDom.kpiCurrentFactor.textContent = fmtFactor(result.currentFactor);
+            tDom.kpiProjectedFactor.textContent = fmtFactor(result.projectedFactor);
+        } else {
+            tDom.twoStepKpiRow.classList.add('hidden');
+        }
 
         tDom.kpiRow.querySelectorAll('.kpi-card').forEach(card => {
-            card.classList.remove('highlight');
-            void card.offsetWidth;
-            card.classList.add('highlight');
+            card.classList.remove('highlight'); void card.offsetWidth; card.classList.add('highlight');
         });
 
         renderTrendChart(result.growthCurve);
@@ -867,72 +538,18 @@
 
     function renderTrendChart(curve) {
         if (!curve || curve.length === 0) return;
-
         const labels = curve.map(p => new Date(p.date));
         const data = curve.map(p => p.value);
 
         if (trendChartInstance) trendChartInstance.destroy();
-
         const ctx = tDom.chartCanvas.getContext('2d');
         const gradient = ctx.createLinearGradient(0, 0, 0, 280);
-        gradient.addColorStop(0, 'rgba(129,140,248,.25)');
-        gradient.addColorStop(1, 'rgba(129,140,248,.02)');
+        gradient.addColorStop(0, 'rgba(129,140,248,.25)'); gradient.addColorStop(1, 'rgba(129,140,248,.02)');
 
         trendChartInstance = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Trended Value',
-                    data,
-                    borderColor: '#818cf8',
-                    backgroundColor: gradient,
-                    borderWidth: 2.5,
-                    pointBackgroundColor: '#818cf8',
-                    pointBorderColor: '#0b0f1a',
-                    pointBorderWidth: 2,
-                    pointRadius: 3,
-                    pointHoverRadius: 5,
-                    fill: true,
-                    tension: 0.3,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(17,24,39,.92)',
-                        titleColor: '#e2e8f0',
-                        bodyColor: '#94a3b8',
-                        borderColor: 'rgba(255,255,255,.1)',
-                        borderWidth: 1,
-                        padding: 10,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: (ctx) => `Value: $${ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-                        }
-                    },
-                },
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: { unit: 'month', tooltipFormat: 'MMM yyyy' },
-                        grid: { color: 'rgba(255,255,255,.05)' },
-                        ticks: { color: '#64748b', font: { size: 11 } },
-                    },
-                    y: {
-                        grid: { color: 'rgba(255,255,255,.05)' },
-                        ticks: {
-                            color: '#64748b', font: { size: 11 },
-                            callback: v => '$' + v.toLocaleString('en-US'),
-                        },
-                        beginAtZero: false,
-                    }
-                }
-            }
+            data: { labels, datasets: [{ label: 'Trended Value', data, borderColor: '#818cf8', backgroundColor: gradient, borderWidth: 2.5, pointBackgroundColor: '#818cf8', pointBorderColor: '#0b0f1a', pointBorderWidth: 2, pointRadius: 3, fill: true, tension: 0.3 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { type: 'time', time: { unit: 'month' } } } }
         });
     }
 
@@ -941,7 +558,6 @@
     //  WORKFLOW MODULE
     // ══════════════════════════════════════════
 
-    // Workflow basis toggle
     wDom.basisToggle.addEventListener('click', (e) => {
         const btn = e.target.closest('.toggle-btn');
         if (!btn) return;
@@ -950,16 +566,22 @@
         wfBasis = btn.dataset.value;
     });
 
-    // Workflow trend type toggle
-    wDom.trendTypeToggle.addEventListener('click', (e) => {
-        const btn = e.target.closest('.toggle-btn');
-        if (!btn) return;
-        wDom.trendTypeToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        wfTrendType = btn.dataset.value;
+    wDom.customDatesToggle.addEventListener('change', () => {
+        const checked = wDom.customDatesToggle.checked;
+        wDom.customDatesFields.classList.toggle('hidden', !checked);
+        wDom.dateSourceStatus.textContent = checked ? 'Using Custom Dates' : 'Using On-Level Dates';
+        if (!checked) { wDom.customHistStart.value = ''; wDom.customHistEnd.value = ''; }
     });
 
-    // Workflow rate rows
+    wDom.modeToggle.addEventListener('click', (e) => {
+        const btn = e.target.closest('.toggle-btn');
+        if (!btn) return;
+        wDom.modeToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        wfTMode = btn.dataset.value;
+        wDom.twoStepFields.classList.toggle('hidden', wfTMode !== 'two-step');
+    });
+
     function addWfRateRow(date = '', pct = '') {
         const id = ++wfRowIdCounter;
         wfRateRows.push({ id, date, pct });
@@ -987,50 +609,49 @@
         if (e.target.classList.contains('wf-rc-date')) row.date = e.target.value;
         if (e.target.classList.contains('wf-rc-pct')) row.pct = e.target.value;
     });
-
     wDom.rateTableBody.addEventListener('click', (e) => {
         const btn = e.target.closest('.wf-remove');
-        if (btn) {
-            wfRateRows = wfRateRows.filter(r => r.id !== parseInt(btn.dataset.id));
-            renderWfRateTable();
-        }
+        if (btn) { wfRateRows = wfRateRows.filter(r => r.id !== parseInt(btn.dataset.id)); renderWfRateTable(); }
     });
-
     wDom.btnAddRow.addEventListener('click', () => addWfRateRow());
 
-    // Pipeline step animation
     function setPipelineStep(stepId, state) {
         const el = $(`#${stepId}`);
         el.classList.remove('active', 'done');
         if (state) el.classList.add(state);
     }
+    function resetPipelineSteps() { ['pipe-step-ol', 'pipe-step-trend', 'pipe-step-final'].forEach(id => setPipelineStep(id, null)); }
 
-    function resetPipelineSteps() {
-        ['pipe-step-ol', 'pipe-step-trend', 'pipe-step-final'].forEach(id => setPipelineStep(id, null));
-    }
-
-    // ── Workflow Validation ──
     function validateWorkflow() {
         const errors = [];
         const premium = parseNum(wDom.premium.value);
         if (isNaN(premium) || premium <= 0) errors.push('Historical Premium must be a positive number.');
         if (!wDom.policyDate.value) errors.push('Policy Effective Date is required.');
         if (!wDom.evalDate.value) errors.push('Evaluation Date is required.');
-        const rate = parseNum(wDom.trendRate.value);
-        if (isNaN(rate)) errors.push('Annual Trend Rate must be a valid number.');
+        
+        if (wDom.customDatesToggle.checked) {
+            if (!wDom.customHistStart.value || !wDom.customHistEnd.value) errors.push('Custom Historical Start & End dates are required.');
+        }
+
+        const rate = parseNum(wDom.currentRate.value);
+        if (isNaN(rate)) errors.push('Current Trend Rate is required.');
+
+        if (wfTMode === 'two-step') {
+            const prate = parseNum(wDom.projectedRate.value);
+            if (isNaN(prate)) errors.push('Projected Trend Rate is required for two-step trending.');
+            if (!wDom.latestData.value) errors.push('Latest Data Point Date is required for two-step trending.');
+        }
+
         return errors;
     }
 
-    // ── Run Workflow ──
     async function runWorkflow() {
         const errors = validateWorkflow();
         showErrors(wDom.validationBox, errors);
         if (errors.length > 0) return;
 
-        wDom.btnRun.disabled = true;
-        wDom.btnRun.textContent = 'Running…';
-        resetPipelineSteps();
-        setPipelineStep('pipe-step-ol', 'active');
+        wDom.btnRun.disabled = true; wDom.btnRun.textContent = 'Running…';
+        resetPipelineSteps(); setPipelineStep('pipe-step-ol', 'active');
 
         try {
             const payload = {
@@ -1042,15 +663,25 @@
                     basis: wfBasis,
                     earningPattern: wDom.earningSelect.value,
                     customWeights: null,
-                    rateChanges: wfRateRows
-                        .filter(r => r.date && r.pct !== '')
-                        .map(r => ({ date: r.date, pct: parseNum(r.pct) })),
+                    rateChanges: wfRateRows.filter(r => r.date && r.pct !== '').map(r => ({ date: r.date, pct: parseNum(r.pct) })),
                 },
-                trendOverrides: {
-                    annualTrendRate: parseNum(wDom.trendRate.value),
-                    trendType: wfTrendType,
+                trendConfig: {
+                    currentTrendRate: parseNum(wDom.currentRate.value),
+                    trendMode: wfTMode,
+                    policyTermMonths: parseInt(wDom.futureTerm.value) || 12,
+                    useCustomDates: wDom.customDatesToggle.checked,
+                    futureStartDate: wDom.futureStart.value || wDom.evalDate.value,
                 },
             };
+
+            if (wDom.customDatesToggle.checked) {
+                payload.trendConfig.customHistoricalStart = wDom.customHistStart.value;
+                payload.trendConfig.customHistoricalEnd = wDom.customHistEnd.value;
+            }
+            if (wfTMode === 'two-step') {
+                payload.trendConfig.projectedTrendRate = parseNum(wDom.projectedRate.value);
+                payload.trendConfig.latestDataPointDate = wDom.latestData.value;
+            }
 
             const resp = await fetch('/api/workflow', {
                 method: 'POST',
@@ -1058,56 +689,45 @@
                 body: JSON.stringify(payload),
             });
 
-            if (!resp.ok) {
-                const err = await resp.json();
-                showErrors(wDom.validationBox, [err.detail || 'Server error']);
-                resetPipelineSteps();
-                return;
-            }
-
+            if (!resp.ok) { const err = await resp.json(); showErrors(wDom.validationBox, [err.detail || 'Server error']); resetPipelineSteps(); return; }
             const result = await resp.json();
 
-            // Animate pipeline
-            setPipelineStep('pipe-step-ol', 'done');
-            await sleep(300);
-            setPipelineStep('pipe-step-trend', 'active');
-            await sleep(300);
-            setPipelineStep('pipe-step-trend', 'done');
-            setPipelineStep('pipe-step-final', 'active');
-            await sleep(200);
-            setPipelineStep('pipe-step-final', 'done');
+            // Pipeline animation
+            setPipelineStep('pipe-step-ol', 'done'); await sleep(300);
+            setPipelineStep('pipe-step-trend', 'active'); await sleep(300);
+            setPipelineStep('pipe-step-trend', 'done'); setPipelineStep('pipe-step-final', 'active');
+            await sleep(200); setPipelineStep('pipe-step-final', 'done');
 
-            // Render results
+            // Render
             wDom.olPremium.textContent = fmtCurrency(result.onLevelResult.onLevelPremium);
             wDom.olFactor.textContent = `Factor: ${fmtFactor(result.onLevelResult.onLevelFactor)}`;
             wDom.finalValue.textContent = fmtCurrency(result.finalValue);
             wDom.trendImpact.textContent = `Impact: ${fmtPct(result.trendResult.totalTrendImpact)}`;
+            
+            wDom.finalValue.parentElement.classList.remove('highlight');
+            void wDom.finalValue.parentElement.offsetWidth;
+            wDom.finalValue.parentElement.classList.add('highlight');
 
-            // Combined audit trail
             const combinedAudit = [
                 { label: '── ON-LEVELING ──', detail: '' },
                 ...result.onLevelResult.auditTrail,
-                { label: '── TREND ANALYSIS ──', detail: '' },
+                { label: '── LOSS TRENDING ──', detail: '' },
                 ...result.trendResult.auditTrail,
                 { label: 'FINAL RESULT', detail: `Workflow Final Value = ${fmtCurrency(result.finalValue)}` },
             ];
             renderAudit(wDom.auditTrail, combinedAudit);
 
-            // Save to shared state
             sharedState.workflowResult = result;
             sharedState.onLevelResult = result.onLevelResult;
             sharedState.onLevelPremium = result.onLevelResult.onLevelPremium;
-            sharedState.policyEffectiveDate = wDom.policyDate.value;
-            sharedState.evaluationDate = wDom.evalDate.value;
+            sharedState.historicalStartDate = wDom.policyDate.value;
+            sharedState.historicalEndDate = wDom.evalDate.value;
             updateSummaryPanel();
         } catch (e) {
-            showErrors(wDom.validationBox, [`Network error: ${e.message}`]);
-            resetPipelineSteps();
+            showErrors(wDom.validationBox, [`Network error: ${e.message}`]); resetPipelineSteps();
         } finally {
             wDom.btnRun.disabled = false;
-            wDom.btnRun.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        Run Full Workflow`;
+            wDom.btnRun.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Run Full Workflow`;
         }
     }
 
@@ -1118,30 +738,33 @@
     //  SUMMARY PANEL
     // ══════════════════════════════════════════
     function updateSummaryPanel() {
-        sumDom.onlevel.textContent = sharedState.onLevelPremium != null
-            ? fmtCurrency(sharedState.onLevelPremium)
-            : '—';
-        sumDom.trend.textContent = sharedState.trendResult
-            ? fmtCurrency(sharedState.trendResult.trendedValue)
-            : '—';
-        sumDom.workflow.textContent = sharedState.workflowResult
-            ? fmtCurrency(sharedState.workflowResult.finalValue)
-            : '—';
+        sumDom.onlevel.textContent = sharedState.onLevelPremium != null ? fmtCurrency(sharedState.onLevelPremium) : '—';
+        sumDom.trend.textContent = sharedState.trendResult ? fmtCurrency(sharedState.trendResult.trendedValue) : '—';
+        sumDom.workflow.textContent = sharedState.workflowResult ? fmtCurrency(sharedState.workflowResult.finalValue) : '—';
     }
 
 
     // ── Utility ──
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
+    // Events
+    dom.btnCalculate.addEventListener('click', calculate);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.target.closest('table') && !e.target.closest('.scenario-controls')) {
+            const activePanel = document.querySelector('.tab-panel.active');
+            if (activePanel && activePanel.id === 'tab-panel-onlevel') calculate();
+            else if (activePanel && activePanel.id === 'tab-panel-trend') calculateTrend();
+            else if (activePanel && activePanel.id === 'tab-panel-workflow') runWorkflow();
+        }
+    });
+
+    // Reset handlers
+    dom.btnReset.addEventListener('click', () => { window.location.reload(); }); // simplified reset
 
     // ── Init: sample rows ──
     addRateRow('2022-07-01', '5');
     addRateRow('2023-01-01', '3');
     addRateRow('2024-01-01', '-2');
-
-    // Workflow: add one sample rate row
     addWfRateRow('2023-01-01', '5');
 
 })();

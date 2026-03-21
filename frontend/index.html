@@ -271,13 +271,13 @@
     </main>
   </div>
 
-  <!-- ───────── TREND ANALYSIS TAB ───────── -->
+  <!-- ───────── LOSS TRENDING TAB ───────── -->
   <div class="tab-panel" id="tab-panel-trend">
     <main class="app-main single-col">
       <section class="panel" id="panel-trend-inputs">
         <h2 class="panel-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Trend Inputs
+          Loss Trend Inputs
         </h2>
 
         <!-- Use On-Level Result toggle -->
@@ -292,38 +292,71 @@
           <span class="interlink-status" id="interlink-status">No on-level result available</span>
         </div>
 
-        <div class="input-grid">
+        <!-- Base Value -->
+        <div class="input-grid" style="grid-template-columns:1fr;margin-bottom:.75rem;">
           <div class="field">
-            <label for="trend-base-value">Base Value ($)</label>
-            <input type="text" id="trend-base-value" inputmode="decimal" placeholder="e.g. 100,000" autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="trend-base-date">Base Date</label>
-            <input type="date" id="trend-base-date" />
-          </div>
-          <div class="field">
-            <label for="trend-eval-date">Evaluation Date</label>
-            <input type="date" id="trend-eval-date" />
-          </div>
-          <div class="field">
-            <label for="trend-annual-rate">Annual Trend Rate (%)</label>
-            <input type="text" id="trend-annual-rate" inputmode="decimal" placeholder="e.g. 3.0" autocomplete="off" />
+            <label for="trend-base-value">Base Value — Historical Losses ($)</label>
+            <input type="text" id="trend-base-value" inputmode="decimal" placeholder="e.g. 500,000" autocomplete="off" />
           </div>
         </div>
 
-        <div class="options-row" style="grid-template-columns: 1fr;">
+        <!-- Historical Period -->
+        <div class="workflow-section-header"><h3>Historical Experience Period</h3></div>
+        <div class="input-grid">
           <div class="field">
-            <label>Trend Type</label>
-            <div class="toggle-group" id="trend-type-toggle">
-              <button class="toggle-btn active" data-value="compound">Compound</button>
-              <button class="toggle-btn" data-value="simple">Simple</button>
+            <label for="trend-hist-start">Period Start</label>
+            <input type="date" id="trend-hist-start" />
+          </div>
+          <div class="field">
+            <label for="trend-hist-end">Period End</label>
+            <input type="date" id="trend-hist-end" />
+          </div>
+        </div>
+
+        <!-- Future Period -->
+        <div class="workflow-section-header" style="margin-top:.75rem;"><h3>Future Coverage Period</h3></div>
+        <div class="input-grid">
+          <div class="field">
+            <label for="trend-future-start">Future Effective Date</label>
+            <input type="date" id="trend-future-start" />
+          </div>
+          <div class="field">
+            <label for="trend-future-term">Policy Term (months)</label>
+            <input type="number" id="trend-future-term" value="12" min="1" max="120" />
+          </div>
+        </div>
+
+        <!-- Trend Mode + Rates -->
+        <div class="workflow-section-header" style="margin-top:.75rem;"><h3>Trend Rates</h3></div>
+        <div class="options-row">
+          <div class="field">
+            <label>Trend Mode</label>
+            <div class="toggle-group" id="trend-mode-toggle">
+              <button class="toggle-btn active" data-value="single">Single Step</button>
+              <button class="toggle-btn" data-value="two-step">Two Step</button>
             </div>
+          </div>
+          <div class="field">
+            <label for="trend-current-rate">Current Trend Rate (%)</label>
+            <input type="text" id="trend-current-rate" inputmode="decimal" placeholder="e.g. 3.0" autocomplete="off" />
+          </div>
+        </div>
+
+        <!-- Two-step fields (hidden by default) -->
+        <div id="two-step-fields" class="input-grid hidden" style="margin-top:.5rem;">
+          <div class="field">
+            <label for="trend-projected-rate">Projected Trend Rate (%)</label>
+            <input type="text" id="trend-projected-rate" inputmode="decimal" placeholder="e.g. 2.0" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="trend-latest-data">Latest Data Point Date</label>
+            <input type="date" id="trend-latest-data" />
           </div>
         </div>
 
         <button id="btn-calculate-trend" class="btn btn-primary btn-lg">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Calculate Trend
+          Calculate Loss Trend
         </button>
         <div id="trend-validation-errors" class="validation-errors hidden"></div>
       </section>
@@ -336,12 +369,40 @@
             <span class="kpi-value" id="trend-kpi-trended">—</span>
           </div>
           <div class="kpi-card">
-            <span class="kpi-label">Time Difference</span>
+            <span class="kpi-label">Trend Factor</span>
+            <span class="kpi-value" id="trend-kpi-factor">—</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Trend Period</span>
             <span class="kpi-value" id="trend-kpi-time">—</span>
           </div>
           <div class="kpi-card">
             <span class="kpi-label">Total Trend Impact</span>
             <span class="kpi-value" id="trend-kpi-impact">—</span>
+          </div>
+        </div>
+
+        <!-- Computed Dates -->
+        <div class="kpi-row" style="margin-top:0;">
+          <div class="kpi-card">
+            <span class="kpi-label">Historical Avg Date</span>
+            <span class="kpi-value" id="trend-kpi-hist-avg" style="font-size:1rem;">—</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Future Avg Date</span>
+            <span class="kpi-value" id="trend-kpi-future-avg" style="font-size:1rem;">—</span>
+          </div>
+        </div>
+
+        <!-- Two-step factor breakdown (hidden by default) -->
+        <div id="two-step-kpi-row" class="kpi-row hidden" style="margin-top:0;">
+          <div class="kpi-card">
+            <span class="kpi-label">Current Factor</span>
+            <span class="kpi-value" id="trend-kpi-current-factor">—</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Projected Factor</span>
+            <span class="kpi-value" id="trend-kpi-projected-factor">—</span>
           </div>
         </div>
 
@@ -363,7 +424,7 @@
             Trend Audit Trail
           </h2>
           <div id="trend-audit-trail" class="audit-trail">
-            <p class="empty-msg">Trend audit trail will appear here.</p>
+            <p class="empty-msg">Loss trend audit trail will appear here.</p>
           </div>
         </div>
       </section>
@@ -462,19 +523,67 @@
         </div>
 
         <div class="workflow-section-header" style="margin-top:1.2rem;">
-          <h3>Step 2: Trend</h3>
+          <h3>Step 2: Loss Trend</h3>
         </div>
-        <div class="input-grid" style="grid-template-columns:1fr 1fr;">
+
+        <!-- Date Source Toggle -->
+        <div class="interlink-toggle" style="margin-bottom:.75rem;">
+          <label class="switch-label">
+            <span class="switch-wrap">
+              <input type="checkbox" id="wf-custom-dates-toggle" />
+              <span class="switch-slider"></span>
+            </span>
+            <span class="switch-text">Use Custom Historical Dates</span>
+          </label>
+          <span class="interlink-status" id="wf-date-source-status">Using On-Level dates</span>
+        </div>
+
+        <!-- Custom date fields (hidden by default) -->
+        <div id="wf-custom-dates" class="input-grid hidden" style="margin-bottom:.75rem;">
           <div class="field">
-            <label for="wf-trend-rate">Annual Trend Rate (%)</label>
-            <input type="text" id="wf-trend-rate" inputmode="decimal" placeholder="e.g. 3.0" autocomplete="off" />
+            <label for="wf-custom-hist-start">Custom Hist. Start</label>
+            <input type="date" id="wf-custom-hist-start" />
           </div>
           <div class="field">
-            <label>Trend Type</label>
-            <div class="toggle-group" id="wf-trend-type-toggle">
-              <button class="toggle-btn active" data-value="compound">Compound</button>
-              <button class="toggle-btn" data-value="simple">Simple</button>
+            <label for="wf-custom-hist-end">Custom Hist. End</label>
+            <input type="date" id="wf-custom-hist-end" />
+          </div>
+        </div>
+
+        <div class="input-grid">
+          <div class="field">
+            <label for="wf-future-start">Future Effective Date</label>
+            <input type="date" id="wf-future-start" />
+          </div>
+          <div class="field">
+            <label for="wf-future-term">Future Policy Term (months)</label>
+            <input type="number" id="wf-future-term" value="12" min="1" max="120" />
+          </div>
+        </div>
+
+        <div class="options-row">
+          <div class="field">
+            <label>Trend Mode</label>
+            <div class="toggle-group" id="wf-trend-mode-toggle">
+              <button class="toggle-btn active" data-value="single">Single Step</button>
+              <button class="toggle-btn" data-value="two-step">Two Step</button>
             </div>
+          </div>
+          <div class="field">
+            <label for="wf-trend-rate">Current Trend Rate (%)</label>
+            <input type="text" id="wf-trend-rate" inputmode="decimal" placeholder="e.g. 3.0" autocomplete="off" />
+          </div>
+        </div>
+
+        <!-- Workflow two-step fields (hidden by default) -->
+        <div id="wf-two-step-fields" class="input-grid hidden" style="margin-top:.5rem;">
+          <div class="field">
+            <label for="wf-projected-rate">Projected Trend Rate (%)</label>
+            <input type="text" id="wf-projected-rate" inputmode="decimal" placeholder="e.g. 2.0" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="wf-latest-data">Latest Data Point Date</label>
+            <input type="date" id="wf-latest-data" />
           </div>
         </div>
 
@@ -545,6 +654,6 @@
     <p>&copy; 2026 Actuarial Platform &middot; Multi-Module Premium Analysis Pipeline</p>
   </footer>
 
-  <script src="app.js?v=2.0"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>
