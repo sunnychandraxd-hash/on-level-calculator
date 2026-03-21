@@ -371,6 +371,11 @@ table input:focus {
 .history-section { margin-bottom: 1.5rem; }
 #history-table tbody td:nth-child(2) { font-weight: 600; }
 
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
 /* ── Scenarios ── */
 .scenario-section { margin-bottom: 1.5rem; }
 .scenario-controls {
@@ -444,137 +449,7 @@ table input:focus {
 .portfolio-section .btn { margin-bottom: .75rem; }
 #portfolio-table td { font-size: .78rem; }
 
-/* ── Interlink Toggle ── */
-.interlink-toggle {
-  display: flex; align-items: center; gap: 1rem;
-  padding: .75rem 1rem;
-  margin-bottom: 1rem;
-  background: rgba(56,189,248,.04);
-  border: 1px solid rgba(56,189,248,.12);
-  border-radius: var(--radius-sm);
-  flex-wrap: wrap;
-}
-.switch-label {
-  display: flex; align-items: center; gap: .6rem;
-  cursor: pointer; font-size: .82rem; font-weight: 500; color: var(--text);
-}
-.switch-wrap {
-  position: relative;
-  width: 40px; height: 22px; flex-shrink: 0;
-}
-.switch-wrap input { opacity: 0; width: 0; height: 0; }
-.switch-slider {
-  position: absolute; inset: 0;
-  background: var(--glass-border);
-  border-radius: 22px;
-  transition: background var(--transition);
-}
-.switch-slider::before {
-  content: '';
-  position: absolute; left: 3px; top: 3px;
-  width: 16px; height: 16px;
-  background: var(--text-muted);
-  border-radius: 50%;
-  transition: transform var(--transition), background var(--transition);
-}
-.switch-wrap input:checked + .switch-slider {
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-}
-.switch-wrap input:checked + .switch-slider::before {
-  transform: translateX(18px);
-  background: #fff;
-}
-.interlink-status {
-  font-size: .72rem; color: var(--text-dim);
-}
-.interlink-status.available { color: var(--success); }
 
-/* ── Pipeline Flow (Workflow tab) ── */
-.pipeline-flow {
-  display: flex; align-items: center; justify-content: center;
-  gap: .5rem;
-  padding: 1.2rem 2rem;
-  background: var(--bg-card);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow);
-}
-.pipeline-step {
-  display: flex; align-items: center; gap: .5rem;
-  font-size: .82rem; font-weight: 500; color: var(--text-muted);
-  transition: color var(--transition);
-}
-.pipeline-step.active { color: var(--accent); }
-.pipeline-step.done { color: var(--success); }
-.step-dot {
-  width: 28px; height: 28px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 50%;
-  border: 2px solid var(--glass-border);
-  font-size: .72rem; font-weight: 700; color: var(--text-dim);
-  transition: all var(--transition);
-}
-.pipeline-step.active .step-dot {
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
-}
-.pipeline-step.done .step-dot {
-  border-color: var(--success);
-  background: rgba(52,211,153,.15);
-  color: var(--success);
-}
-.pipeline-arrow {
-  color: var(--text-dim);
-  display: flex; align-items: center;
-}
-
-/* ── Workflow Results ── */
-.wf-results-grid {
-  display: flex; align-items: center; justify-content: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.wf-result-card {
-  flex: 1; min-width: 200px; max-width: 320px;
-  background: var(--bg-card-alt);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  padding: 1.2rem;
-  text-align: center;
-  transition: transform var(--transition);
-}
-.wf-result-card:hover { transform: translateY(-2px); }
-.wf-card-label {
-  font-size: .72rem; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--text-muted); margin-bottom: .4rem;
-}
-.wf-card-value {
-  font-size: 1.6rem; font-weight: 800;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-}
-.wf-card-sub {
-  font-size: .75rem; color: var(--text-dim); margin-top: .3rem;
-}
-.wf-card-final {
-  border-color: rgba(52,211,153,.2);
-  background: rgba(52,211,153,.05);
-}
-.wf-card-final .wf-card-value {
-  background: linear-gradient(135deg, var(--success), var(--accent));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-}
-.wf-result-arrow {
-  color: var(--text-dim);
-  display: flex; align-items: center;
-}
-.workflow-section-header h3 {
-  font-size: .88rem; font-weight: 600;
-  color: var(--accent);
-  margin-bottom: .5rem;
-}
 
 /* ── Summary Panel ── */
 .summary-panel {
@@ -629,8 +504,5 @@ table input:focus {
   .input-grid, .options-row { grid-template-columns: 1fr; }
   .kpi-row { grid-template-columns: 1fr 1fr; }
   .scenario-cards { grid-template-columns: 1fr; }
-  .pipeline-flow { flex-wrap: wrap; gap: .3rem; }
-  .wf-results-grid { flex-direction: column; }
-  .wf-result-arrow { transform: rotate(90deg); }
   .summary-inner { flex-wrap: wrap; gap: .8rem; }
 }

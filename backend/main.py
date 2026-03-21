@@ -20,8 +20,8 @@ from models import (
     PortfolioResultRow,
     LossTrendRequest,
     LossTrendResponse,
-    WorkflowRequest,
-    WorkflowResponse,
+    LossTrendPortfolioRequest,
+    LossTrendPortfolioResponse,
 )
 from engine import calculate, compute_adequacy
 from trend import apply_loss_trend
@@ -139,61 +139,62 @@ def api_trend(req: LossTrendRequest):
     return result
 
 
-@app.post("/api/workflow", response_model=WorkflowResponse)
-def api_workflow(req: WorkflowRequest):
-    """Run a chained pipeline: On-Level → Loss Trend → Final Value."""
-    # Step 1: On-Level calculation
-    ol_req = req.onLevelInput
-    if ol_req.evaluationDate < ol_req.policyEffectiveDate:
-        raise HTTPException(400, "Evaluation date must be on or after policy effective date.")
-
-    raw_changes = [{"date": rc.date, "pct": rc.pct} for rc in ol_req.rateChanges]
-    ol_result = calculate(
-        historical_premium=ol_req.historicalPremium,
-        policy_date=ol_req.policyEffectiveDate,
-        eval_date=ol_req.evaluationDate,
-        policy_term=ol_req.policyTerm,
-        basis=ol_req.basis,
-        earning_pattern=ol_req.earningPattern,
-        custom_weights=ol_req.customWeights,
-        raw_rate_changes=raw_changes,
-    )
-
-    # Step 2: Derive trend dates from on-level inputs or custom dates
-    tc = req.trendConfig
-    if tc.useCustomDates and tc.customHistoricalStart and tc.customHistoricalEnd:
-        hist_start = tc.customHistoricalStart
-        hist_end = tc.customHistoricalEnd
-    else:
-        hist_start = ol_req.policyEffectiveDate
-        hist_end = ol_req.evaluationDate
-
-    future_start = tc.futureStartDate or ol_req.evaluationDate
-
-    # Validate two-step
-    if tc.trendMode == "two-step":
-        if tc.projectedTrendRate is None:
-            raise HTTPException(400, "Projected trend rate is required for two-step trending.")
-        if tc.latestDataPointDate is None:
-            raise HTTPException(400, "Latest data point date is required for two-step trending.")
-
-    trend_result = apply_loss_trend(
-        base_value=ol_result["onLevelPremium"],
-        historical_start=hist_start,
-        historical_end=hist_end,
-        future_start=future_start,
-        policy_term_months=tc.policyTermMonths,
-        current_trend_rate=tc.currentTrendRate,
-        projected_trend_rate=tc.projectedTrendRate,
-        latest_data_point=tc.latestDataPointDate,
-        trend_mode=tc.trendMode,
-    )
-
-    return WorkflowResponse(
-        onLevelResult=ol_result,
-        trendResult=trend_result,
-        finalValue=trend_result["trendedValue"],
-    )
+@app.post("/api/trend/portfolio", response_model=LossTrendPortfolioResponse)
+def api_trend_portfolio(req: LossTrendPortfolioRequest):
+    """Run actuarially sound loss trend for a batch of policies."""
+    if not req.policies:
+        raise HTTPException(status_code=400, detail="No policies provided.")
+        
+    results = []
+    success_count = 0
+    error_count = 0
+    
+    for i, pol in enumerate(req.policies):
+        try:
+            res = apply_loss_trend(
+                base_value=pol.base_loss,
+                historical_start=pol.historical_start_date,
+                historical_end=pol.historical_end_date,
+                future_start=pol.future_start_date,
+                policy_term_months=pol.policy_term_months,
+                current_trend_rate=req.currentTrendRate,
+                projected_trend_rate=req.projectedTrendRate,
+                latest_data_point=pol.latest_data_point_date or req.latestDataPointDate,
+                trend_mode=req.trendMode,
+            )
+            
+            results.append({
+                "idx": i + 1,
+                "base_loss": pol.base_loss,
+                "trend_factor": res["trendFactor"],
+                "trended_loss": res["trendedValue"],
+                "impact": res["totalTrendImpact"],
+                "trend_period_years": res["trendPeriodYears"],
+                "historical_avg_date": res["historicalAvgDate"],
+                "future_avg_date": res["futureAvgDate"],
+                "status": "Success"
+            })
+            success_count += 1
+        except Exception:
+            results.append({
+                "idx": i + 1,
+                "base_loss": pol.base_loss,
+                "trend_factor": 1.0,
+                "trended_loss": pol.base_loss,
+                "impact": 0.0,
+                "trend_period_years": 0.0,
+                "historical_avg_date": "",
+                "future_avg_date": "",
+                "status": "Error"
+            })
+            error_count += 1
+            
+    audit = [
+        {"label": "Batch Processing", "detail": f"Processed {len(req.policies)} rows.", "formula": None},
+        {"label": "Results", "detail": f"Success: {success_count}, Errors: {error_count}.", "formula": None}
+    ]
+    
+    return LossTrendPortfolioResponse(results=results, summary_audit=audit)
 
 
 # ── Serve Frontend ──

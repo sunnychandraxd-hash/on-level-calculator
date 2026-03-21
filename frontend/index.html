@@ -40,15 +40,11 @@
     <div class="tab-bar-inner">
       <button class="tab-btn active" data-tab="onlevel">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
-        On-Leveling
+        Premium On-Leveling
       </button>
       <button class="tab-btn" data-tab="trend">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Trend Analysis
-      </button>
-      <button class="tab-btn" data-tab="workflow">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><line x1="8" y1="12" x2="16" y2="12"/><polyline points="14 9 16 12 14 15"/></svg>
-        Workflow
+        Loss Trending
       </button>
       <div class="tab-indicator" id="tab-indicator"></div>
     </div>
@@ -280,17 +276,6 @@
           Loss Trend Inputs
         </h2>
 
-        <!-- Use On-Level Result toggle -->
-        <div class="interlink-toggle" id="interlink-trend">
-          <label class="switch-label">
-            <span class="switch-wrap">
-              <input type="checkbox" id="use-onlevel-toggle" />
-              <span class="switch-slider"></span>
-            </span>
-            <span class="switch-text">Use On-Level Result as Base Value</span>
-          </label>
-          <span class="interlink-status" id="interlink-status">No on-level result available</span>
-        </div>
 
         <!-- Base Value -->
         <div class="input-grid" style="grid-template-columns:1fr;margin-bottom:.75rem;">
@@ -354,9 +339,27 @@
           </div>
         </div>
 
+        <!-- Loss Trending Portfolio Upload -->
+        <div class="upload-section" style="margin-top:1.5rem; margin-bottom:1rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>Portfolio Upload (Optional)</h3>
+            <button id="btn-trend-template" class="btn btn-sm btn-ghost">Download Template</button>
+          </div>
+          <p class="upload-hint">Upload a CSV/Excel file with columns: <code>base_loss</code>, <code>historical_start_date</code>, <code>historical_end_date</code>, <code>future_start_date</code>, <code>policy_term_months</code>. <br><em>Tip: Dates should be in YYYY-MM-DD format.</em></p>
+          <label class="upload-drop" id="trend-upload-drop">
+            <input type="file" id="trend-file-upload" accept=".csv,.xlsx,.xls" hidden />
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Drag &amp; drop or <strong>browse</strong></span>
+          </label>
+          <div id="trend-upload-status" class="upload-status hidden"></div>
+        </div>
+
         <button id="btn-calculate-trend" class="btn btn-primary btn-lg">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Calculate Loss Trend
+          <span class="btn-spinner hidden" id="trend-spinner" style="display:inline-block; animation: spin 1s linear infinite; margin-right:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+          </span>
+          <svg id="trend-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span id="trend-btn-text">Calculate Loss Trend</span>
         </button>
         <div id="trend-validation-errors" class="validation-errors hidden"></div>
       </section>
@@ -427,208 +430,35 @@
             <p class="empty-msg">Loss trend audit trail will appear here.</p>
           </div>
         </div>
-      </section>
-    </main>
-  </div>
 
-  <!-- ───────── WORKFLOW TAB ───────── -->
-  <div class="tab-panel" id="tab-panel-workflow">
-    <main class="app-main single-col">
-      <!-- Pipeline Flow Indicator -->
-      <div class="pipeline-flow" id="pipeline-flow">
-        <div class="pipeline-step" id="pipe-step-ol">
-          <div class="step-dot">1</div>
-          <span>On-Leveling</span>
-        </div>
-        <div class="pipeline-arrow">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </div>
-        <div class="pipeline-step" id="pipe-step-trend">
-          <div class="step-dot">2</div>
-          <span>Trend</span>
-        </div>
-        <div class="pipeline-arrow">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </div>
-        <div class="pipeline-step" id="pipe-step-final">
-          <div class="step-dot">✓</div>
-          <span>Final Output</span>
-        </div>
-      </div>
-
-      <!-- Workflow Inputs -->
-      <section class="panel" id="panel-workflow-inputs">
-        <h2 class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          Workflow Inputs
-        </h2>
-
-        <div class="workflow-section-header">
-          <h3>Step 1: On-Leveling</h3>
-        </div>
-        <div class="input-grid">
-          <div class="field">
-            <label for="wf-premium">Historical Premium ($)</label>
-            <input type="text" id="wf-premium" inputmode="decimal" placeholder="e.g. 100,000" autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="wf-policy-date">Policy Effective Date</label>
-            <input type="date" id="wf-policy-date" />
-          </div>
-          <div class="field">
-            <label for="wf-eval-date">Evaluation Date</label>
-            <input type="date" id="wf-eval-date" />
-          </div>
-          <div class="field">
-            <label for="wf-policy-term">Policy Term (months)</label>
-            <input type="number" id="wf-policy-term" value="12" min="1" max="120" />
-          </div>
-        </div>
-
-        <!-- Basis & Pattern -->
-        <div class="options-row">
-          <div class="field">
-            <label>Basis</label>
-            <div class="toggle-group" id="wf-basis-toggle">
-              <button class="toggle-btn active" data-value="written">Written</button>
-              <button class="toggle-btn" data-value="earned">Earned</button>
-            </div>
-          </div>
-          <div class="field">
-            <label for="wf-earning-pattern">Earning Pattern</label>
-            <select id="wf-earning-pattern">
-              <option value="12-linear">12-Month Linear</option>
-              <option value="24-linear">24-Month Linear</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Simple rate change rows for workflow -->
-        <div class="rate-table-header">
-          <h3>Rate Changes</h3>
-          <div class="rate-table-actions">
-            <button id="wf-btn-add-row" class="btn btn-sm btn-accent">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add Row
-            </button>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table id="wf-rate-table">
-            <thead>
-              <tr><th>Effective Date</th><th>Rate Change (%)</th><th></th></tr>
-            </thead>
-            <tbody id="wf-rate-table-body"></tbody>
-          </table>
-        </div>
-
-        <div class="workflow-section-header" style="margin-top:1.2rem;">
-          <h3>Step 2: Loss Trend</h3>
-        </div>
-
-        <!-- Date Source Toggle -->
-        <div class="interlink-toggle" style="margin-bottom:.75rem;">
-          <label class="switch-label">
-            <span class="switch-wrap">
-              <input type="checkbox" id="wf-custom-dates-toggle" />
-              <span class="switch-slider"></span>
-            </span>
-            <span class="switch-text">Use Custom Historical Dates</span>
-          </label>
-          <span class="interlink-status" id="wf-date-source-status">Using On-Level dates</span>
-        </div>
-
-        <!-- Custom date fields (hidden by default) -->
-        <div id="wf-custom-dates" class="input-grid hidden" style="margin-bottom:.75rem;">
-          <div class="field">
-            <label for="wf-custom-hist-start">Custom Hist. Start</label>
-            <input type="date" id="wf-custom-hist-start" />
-          </div>
-          <div class="field">
-            <label for="wf-custom-hist-end">Custom Hist. End</label>
-            <input type="date" id="wf-custom-hist-end" />
-          </div>
-        </div>
-
-        <div class="input-grid">
-          <div class="field">
-            <label for="wf-future-start">Future Effective Date</label>
-            <input type="date" id="wf-future-start" />
-          </div>
-          <div class="field">
-            <label for="wf-future-term">Future Policy Term (months)</label>
-            <input type="number" id="wf-future-term" value="12" min="1" max="120" />
-          </div>
-        </div>
-
-        <div class="options-row">
-          <div class="field">
-            <label>Trend Mode</label>
-            <div class="toggle-group" id="wf-trend-mode-toggle">
-              <button class="toggle-btn active" data-value="single">Single Step</button>
-              <button class="toggle-btn" data-value="two-step">Two Step</button>
-            </div>
-          </div>
-          <div class="field">
-            <label for="wf-trend-rate">Current Trend Rate (%)</label>
-            <input type="text" id="wf-trend-rate" inputmode="decimal" placeholder="e.g. 3.0" autocomplete="off" />
-          </div>
-        </div>
-
-        <!-- Workflow two-step fields (hidden by default) -->
-        <div id="wf-two-step-fields" class="input-grid hidden" style="margin-top:.5rem;">
-          <div class="field">
-            <label for="wf-projected-rate">Projected Trend Rate (%)</label>
-            <input type="text" id="wf-projected-rate" inputmode="decimal" placeholder="e.g. 2.0" autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="wf-latest-data">Latest Data Point Date</label>
-            <input type="date" id="wf-latest-data" />
-          </div>
-        </div>
-
-        <button id="btn-run-workflow" class="btn btn-primary btn-lg">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          Run Full Workflow
-        </button>
-        <div id="wf-validation-errors" class="validation-errors hidden"></div>
-      </section>
-
-      <!-- Workflow Outputs -->
-      <section class="panel" id="panel-workflow-outputs">
-        <h2 class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          Workflow Results
-        </h2>
-        <div class="wf-results-grid" id="wf-results">
-          <div class="wf-result-card wf-card-intermediate">
-            <div class="wf-card-label">Intermediate: On-Level Premium</div>
-            <div class="wf-card-value" id="wf-ol-premium">—</div>
-            <div class="wf-card-sub" id="wf-ol-factor">Factor: —</div>
-          </div>
-          <div class="wf-result-arrow">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          </div>
-          <div class="wf-result-card wf-card-final">
-            <div class="wf-card-label">Final: Trended Value</div>
-            <div class="wf-card-value" id="wf-final-value">—</div>
-            <div class="wf-card-sub" id="wf-trend-impact">Impact: —</div>
-          </div>
-        </div>
-
-        <!-- Workflow Audit Trail -->
-        <div class="audit-section" style="margin-top:1.5rem;">
+        <!-- Trend Portfolio Results -->
+        <div id="trend-portfolio-section" class="portfolio-section hidden">
           <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            Combined Audit Trail
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Trend Portfolio Results
           </h2>
-          <div id="wf-audit-trail" class="audit-trail">
-            <p class="empty-msg">Run the workflow to see the combined audit trail.</p>
+          <button id="btn-download-trend-portfolio" class="btn btn-sm btn-accent">Download CSV</button>
+          <div class="table-wrap" style="max-height: 250px; overflow-y: auto;">
+            <table id="trend-portfolio-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Base Loss</th>
+                  <th>Trend Factor</th>
+                  <th>Trended Value</th>
+                  <th>Impact</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="trend-portfolio-body"></tbody>
+            </table>
           </div>
         </div>
       </section>
     </main>
   </div>
+
+
 
   <!-- ───────── SUMMARY PANEL ───────── -->
   <div id="summary-panel" class="summary-panel">
@@ -641,11 +471,6 @@
       <div class="summary-item">
         <span class="summary-label">Trended Result</span>
         <span class="summary-value" id="summary-trend">—</span>
-      </div>
-      <div class="summary-sep"></div>
-      <div class="summary-item">
-        <span class="summary-label">Workflow Final</span>
-        <span class="summary-value" id="summary-workflow">—</span>
       </div>
     </div>
   </div>

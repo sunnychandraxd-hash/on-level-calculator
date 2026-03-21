@@ -113,28 +113,39 @@ class LossTrendResponse(BaseModel):
     auditTrail: list[AuditStep]
 
 
-# ── Workflow (Pipeline) ─────────────────────────────────────────────
+# ── Loss Trending Portfolio ─────────────────────────────────────────
 
 
-class WorkflowTrendConfig(BaseModel):
-    currentTrendRate: float = Field(..., description="Current annual trend rate as %, e.g. 3.0")
+class LossTrendPortfolioRow(BaseModel):
+    base_loss: float
+    historical_start_date: date
+    historical_end_date: date
+    future_start_date: date
+    policy_term_months: int = 12
+    latest_data_point_date: Optional[date] = None
+
+
+class LossTrendPortfolioRequest(BaseModel):
+    currentTrendRate: float
     trendMode: str = Field("single", pattern="^(single|two-step)$")
     projectedTrendRate: Optional[float] = None
     latestDataPointDate: Optional[date] = None
-    futureStartDate: Optional[date] = None
-    policyTermMonths: int = Field(12, ge=1, le=120)
-    useCustomDates: bool = Field(False, description="If true, use custom historical dates instead of on-level dates")
-    customHistoricalStart: Optional[date] = None
-    customHistoricalEnd: Optional[date] = None
+    policies: list[LossTrendPortfolioRow] = []
 
 
-class WorkflowRequest(BaseModel):
-    onLevelInput: CalculateRequest
-    trendConfig: WorkflowTrendConfig
+class LossTrendPortfolioResultRow(BaseModel):
+    idx: int
+    base_loss: float
+    trend_factor: float
+    trended_loss: float
+    impact: float
+    trend_period_years: float
+    historical_avg_date: str
+    future_avg_date: str
+    status: str
 
 
-class WorkflowResponse(BaseModel):
-    onLevelResult: CalculateResponse
-    trendResult: LossTrendResponse
-    finalValue: float
+class LossTrendPortfolioResponse(BaseModel):
+    results: list[LossTrendPortfolioResultRow]
+    summary_audit: list[AuditStep]
 

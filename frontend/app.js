@@ -12,13 +12,8 @@
     //  SHARED STATE (cross-module)
     // ══════════════════════════════════════════
     const sharedState = {
-        onLevelResult: null,   // last on-level calculation result
-        trendResult: null,     // last trend calculation result
-        workflowResult: null,  // last workflow result
-        // Cached values for interlinking
-        onLevelPremium: null,
-        historicalStartDate: null,
-        historicalEndDate: null,
+        onLevelResult: null,
+        trendResult: null
     };
 
     // ══════════════════════════════════════════
@@ -75,9 +70,17 @@
         twoStepFields: $('#two-step-fields'),
         projectedRate: $('#trend-projected-rate'),
         latestData: $('#trend-latest-data'),
-        useOnLevelToggle: $('#use-onlevel-toggle'),
-        interlinkStatus: $('#interlink-status'),
         btnCalculate: $('#btn-calculate-trend'),
+        btnIcon: $('#trend-btn-icon'),
+        btnText: $('#trend-btn-text'),
+        btnSpinner: $('#trend-spinner'),
+        fileUpload: $('#trend-file-upload'),
+        uploadDrop: $('#trend-upload-drop'),
+        uploadStatus: $('#trend-upload-status'),
+        btnTemplate: $('#btn-trend-template'),
+        portfolioSec: $('#trend-portfolio-section'),
+        portfolioBody: $('#trend-portfolio-body'),
+        btnDownload: $('#btn-download-trend-portfolio'),
         validationBox: $('#trend-validation-errors'),
         // KPIs
         kpiTrended: $('#trend-kpi-trended'),
@@ -94,45 +97,10 @@
         auditTrail: $('#trend-audit-trail'),
     };
 
-    // Workflow DOM
-    const wDom = {
-        // Step 1: On-Level
-        premium: $('#wf-premium'),
-        policyDate: $('#wf-policy-date'),
-        evalDate: $('#wf-eval-date'),
-        policyTerm: $('#wf-policy-term'),
-        basisToggle: $('#wf-basis-toggle'),
-        earningSelect: $('#wf-earning-pattern'),
-        rateTableBody: $('#wf-rate-table-body'),
-        btnAddRow: $('#wf-btn-add-row'),
-        // Step 2: Loss Trend Config
-        customDatesToggle: $('#wf-custom-dates-toggle'),
-        dateSourceStatus: $('#wf-date-source-status'),
-        customDatesFields: $('#wf-custom-dates'),
-        customHistStart: $('#wf-custom-hist-start'),
-        customHistEnd: $('#wf-custom-hist-end'),
-        futureStart: $('#wf-future-start'),
-        futureTerm: $('#wf-future-term'),
-        modeToggle: $('#wf-trend-mode-toggle'),
-        currentRate: $('#wf-trend-rate'),
-        twoStepFields: $('#wf-two-step-fields'),
-        projectedRate: $('#wf-projected-rate'),
-        latestData: $('#wf-latest-data'),
-        btnRun: $('#btn-run-workflow'),
-        validationBox: $('#wf-validation-errors'),
-        // Results
-        olPremium: $('#wf-ol-premium'),
-        olFactor: $('#wf-ol-factor'),
-        finalValue: $('#wf-final-value'),
-        trendImpact: $('#wf-trend-impact'),
-        auditTrail: $('#wf-audit-trail'),
-    };
-
     // Summary
     const sumDom = {
         onlevel: $('#summary-onlevel'),
         trend: $('#summary-trend'),
-        workflow: $('#summary-workflow'),
     };
 
     // ── State ──
@@ -147,11 +115,8 @@
     
     // Trend state
     let tMode = 'single';
-    // Workflow state
-    let wfRateRows = [];
-    let wfRowIdCounter = 0;
-    let wfBasis = 'written';
-    let wfTMode = 'single';
+    let uploadedTrendPortfolioRows = null;
+    let trendPortfolioResultsData = null;
 
     // ── Helpers ──
     const parseNum = (v) => {
@@ -173,7 +138,6 @@
             btn.classList.add('active');
             $$('.tab-panel').forEach(p => p.classList.remove('active'));
             $(`#tab-panel-${tab}`).classList.add('active');
-            if (tab === 'trend') updateInterlinkStatus();
         });
     });
 
@@ -406,43 +370,27 @@
         tDom.twoStepFields.classList.toggle('hidden', tMode !== 'two-step');
     });
 
-    function updateInterlinkStatus() {
-        if (sharedState.onLevelResult) {
-            tDom.interlinkStatus.textContent = `Available: ${fmtCurrency(sharedState.onLevelPremium)}`;
-            tDom.interlinkStatus.classList.add('available');
-        } else {
-            tDom.interlinkStatus.textContent = 'No on-level result available';
-            tDom.interlinkStatus.classList.remove('available');
-        }
-    }
 
-    tDom.useOnLevelToggle.addEventListener('change', () => {
-        const checked = tDom.useOnLevelToggle.checked;
-        if (checked && !sharedState.onLevelResult) {
-            tDom.useOnLevelToggle.checked = false;
-            showErrors(tDom.validationBox, ['Run an On-Leveling calculation first.']);
-            return;
-        }
-        if (checked) {
-            tDom.baseValue.value = sharedState.onLevelPremium.toFixed(2);
-            tDom.histStart.value = sharedState.historicalStartDate;
-            tDom.histEnd.value = sharedState.historicalEndDate;
-            [tDom.baseValue, tDom.histStart, tDom.histEnd].forEach(el => { el.classList.add('interlinked'); el.readOnly = true; });
-        } else {
-            [tDom.baseValue, tDom.histStart, tDom.histEnd].forEach(el => { el.classList.remove('interlinked'); el.readOnly = false; });
-        }
-    });
 
     function validateTrend() {
         const errors = [];
-        const val = parseNum(tDom.baseValue.value);
-        if (isNaN(val) || val <= 0) errors.push('Base Value must be a positive number.');
-        if (!tDom.histStart.value) errors.push('Historical Period Start is required.');
-        if (!tDom.histEnd.value) errors.push('Historical Period End is required.');
-        if (!tDom.futureStart.value) errors.push('Future Effective Date is required.');
+        const hasPortfolio = (uploadedTrendPortfolioRows && uploadedTrendPortfolioRows.length > 0);
         
-        const term = parseInt(tDom.futureTerm.value);
-        if (isNaN(term) || term < 1) errors.push('Policy Term must be at least 1 month.');
+        // Single inputs are only strictly required if no portfolio is uploaded
+        const val = parseNum(tDom.baseValue.value);
+        if (!hasPortfolio || !isNaN(val)) {
+            if (isNaN(val) || val <= 0) errors.push('Base Value must be a positive number.');
+            if (!tDom.histStart.value) errors.push('Historical Period Start is required.');
+            if (!tDom.histEnd.value) errors.push('Historical Period End is required.');
+            if (!tDom.futureStart.value) errors.push('Future Effective Date is required.');
+            
+            const term = parseInt(tDom.futureTerm.value);
+            if (isNaN(term) || term < 1) errors.push('Policy Term must be at least 1 month.');
+            
+            if (tDom.histStart.value && tDom.histEnd.value && tDom.histEnd.value <= tDom.histStart.value) {
+                errors.push('Historical Period End must be after Start Date.');
+            }
+        }
         
         const crate = parseNum(tDom.currentRate.value);
         if (isNaN(crate)) errors.push('Current Trend Rate is required.');
@@ -450,12 +398,9 @@
         if (tMode === 'two-step') {
             const prate = parseNum(tDom.projectedRate.value);
             if (isNaN(prate)) errors.push('Projected Trend Rate is required for two-step trending.');
-            if (!tDom.latestData.value) errors.push('Latest Data Point Date is required for two-step trending.');
+            if (!tDom.latestData.value) errors.push('Latest Data Point Date is required for two-step (used as global fallback for portfolio).');
         }
 
-        if (tDom.histStart.value && tDom.histEnd.value && tDom.histEnd.value <= tDom.histStart.value) {
-            errors.push('Historical Period End must be after Start Date.');
-        }
         return errors;
     }
 
@@ -465,47 +410,64 @@
         if (errors.length > 0) return null;
 
         tDom.btnCalculate.disabled = true;
-        tDom.btnCalculate.textContent = 'Calculating…';
+        tDom.btnIcon.classList.add('hidden');
+        tDom.btnSpinner.classList.remove('hidden');
+        tDom.btnText.textContent = 'Calculating…';
 
         try {
-            const payload = {
-                baseValue: parseNum(tDom.baseValue.value),
-                historicalStartDate: tDom.histStart.value,
-                historicalEndDate: tDom.histEnd.value,
-                futureStartDate: tDom.futureStart.value,
-                policyTermMonths: parseInt(tDom.futureTerm.value),
-                currentTrendRate: parseNum(tDom.currentRate.value),
-                trendMode: tMode,
-            };
-
-            if (tMode === 'two-step') {
-                payload.projectedTrendRate = parseNum(tDom.projectedRate.value);
-                payload.latestDataPointDate = tDom.latestData.value;
+            if (uploadedTrendPortfolioRows && uploadedTrendPortfolioRows.length > 0) {
+                await processTrendPortfolio(uploadedTrendPortfolioRows);
             }
+            
+            const val = parseNum(tDom.baseValue.value);
+            if (!isNaN(val)) {
+                const payload = {
+                    baseValue: val,
+                    historicalStartDate: tDom.histStart.value,
+                    historicalEndDate: tDom.histEnd.value,
+                    futureStartDate: tDom.futureStart.value,
+                    policyTermMonths: parseInt(tDom.futureTerm.value) || 12,
+                    currentTrendRate: parseNum(tDom.currentRate.value),
+                    trendMode: tMode,
+                };
 
-            const resp = await fetch('/api/trend', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+                if (tMode === 'two-step') {
+                    payload.projectedTrendRate = parseNum(tDom.projectedRate.value);
+                    payload.latestDataPointDate = tDom.latestData.value;
+                }
 
-            if (!resp.ok) {
-                const err = await resp.json();
-                showErrors(tDom.validationBox, [err.detail || 'Server error']);
-                return null;
+                const resp = await fetch('/api/trend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    showErrors(tDom.validationBox, [err.detail || 'Server error']);
+                    return null;
+                }
+
+                const result = await resp.json();
+                renderTrendOutputs(result);
+                sharedState.trendResult = result;
+                updateSummaryPanel();
+                return result;
+            } else {
+                // Clear single outputs if only portfolio was processed
+                tDom.kpiTrended.textContent = '—';
+                tDom.kpiFactor.textContent = '—';
+                tDom.kpiTime.textContent = '—';
+                tDom.kpiImpact.textContent = '—';
             }
-
-            const result = await resp.json();
-            renderTrendOutputs(result);
-            sharedState.trendResult = result;
-            updateSummaryPanel();
-            return result;
         } catch (e) {
             showErrors(tDom.validationBox, [`Network error: ${e.message}`]);
             return null;
         } finally {
             tDom.btnCalculate.disabled = false;
-            tDom.btnCalculate.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Calculate Loss Trend`;
+            tDom.btnIcon.classList.remove('hidden');
+            tDom.btnSpinner.classList.add('hidden');
+            tDom.btnText.textContent = 'Calculate Loss Trend';
         }
     }
 
@@ -554,184 +516,181 @@
     }
 
 
+
+
+
     // ══════════════════════════════════════════
-    //  WORKFLOW MODULE
+    //  LOSS TREND PORTFOLIO
     // ══════════════════════════════════════════
 
-    wDom.basisToggle.addEventListener('click', (e) => {
-        const btn = e.target.closest('.toggle-btn');
-        if (!btn) return;
-        wDom.basisToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        wfBasis = btn.dataset.value;
+    tDom.btnTemplate.addEventListener('click', () => {
+        const csvContent = "base_loss,historical_start_date,historical_end_date,future_start_date,policy_term_months,latest_data_point_date\n" +
+                           "500000,2022-01-01,2022-12-31,2024-01-01,12,\n" +
+                           "250000,2023-01-01,2023-12-31,2024-06-01,12,2023-12-31\n" +
+                           "100000,2023-07-01,2024-06-30,2025-01-01,6,";
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "loss_trend_portfolio_template.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     });
 
-    wDom.customDatesToggle.addEventListener('change', () => {
-        const checked = wDom.customDatesToggle.checked;
-        wDom.customDatesFields.classList.toggle('hidden', !checked);
-        wDom.dateSourceStatus.textContent = checked ? 'Using Custom Dates' : 'Using On-Level Dates';
-        if (!checked) { wDom.customHistStart.value = ''; wDom.customHistEnd.value = ''; }
+    tDom.fileUpload.addEventListener('change', (e) => handleTrendFileUpload(e.target.files[0]));
+    tDom.uploadDrop.addEventListener('dragover', (e) => { e.preventDefault(); tDom.uploadDrop.classList.add('drag-over'); });
+    tDom.uploadDrop.addEventListener('dragleave', () => tDom.uploadDrop.classList.remove('drag-over'));
+    tDom.uploadDrop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        tDom.uploadDrop.classList.remove('drag-over');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleTrendFileUpload(e.dataTransfer.files[0]);
+        }
     });
 
-    wDom.modeToggle.addEventListener('click', (e) => {
-        const btn = e.target.closest('.toggle-btn');
-        if (!btn) return;
-        wDom.modeToggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        wfTMode = btn.dataset.value;
-        wDom.twoStepFields.classList.toggle('hidden', wfTMode !== 'two-step');
-    });
+    const expectedTrendColumns = ['base_loss', 'historical_start_date', 'historical_end_date', 'future_start_date', 'policy_term_months'];
 
-    function addWfRateRow(date = '', pct = '') {
-        const id = ++wfRowIdCounter;
-        wfRateRows.push({ id, date, pct });
-        renderWfRateTable();
-    }
-
-    function renderWfRateTable() {
-        wDom.rateTableBody.innerHTML = '';
-        wfRateRows.forEach(row => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-        <td><input type="date" class="wf-rc-date" data-id="${row.id}" value="${row.date}" /></td>
-        <td><input type="text" class="wf-rc-pct" data-id="${row.id}" value="${row.pct}" placeholder="e.g. 5" inputmode="decimal" /></td>
-        <td><button class="btn-remove-row wf-remove" data-id="${row.id}" title="Remove">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button></td>`;
-            wDom.rateTableBody.appendChild(tr);
-        });
-    }
-
-    wDom.rateTableBody.addEventListener('input', (e) => {
-        const id = parseInt(e.target.dataset.id);
-        const row = wfRateRows.find(r => r.id === id);
-        if (!row) return;
-        if (e.target.classList.contains('wf-rc-date')) row.date = e.target.value;
-        if (e.target.classList.contains('wf-rc-pct')) row.pct = e.target.value;
-    });
-    wDom.rateTableBody.addEventListener('click', (e) => {
-        const btn = e.target.closest('.wf-remove');
-        if (btn) { wfRateRows = wfRateRows.filter(r => r.id !== parseInt(btn.dataset.id)); renderWfRateTable(); }
-    });
-    wDom.btnAddRow.addEventListener('click', () => addWfRateRow());
-
-    function setPipelineStep(stepId, state) {
-        const el = $(`#${stepId}`);
-        el.classList.remove('active', 'done');
-        if (state) el.classList.add(state);
-    }
-    function resetPipelineSteps() { ['pipe-step-ol', 'pipe-step-trend', 'pipe-step-final'].forEach(id => setPipelineStep(id, null)); }
-
-    function validateWorkflow() {
-        const errors = [];
-        const premium = parseNum(wDom.premium.value);
-        if (isNaN(premium) || premium <= 0) errors.push('Historical Premium must be a positive number.');
-        if (!wDom.policyDate.value) errors.push('Policy Effective Date is required.');
-        if (!wDom.evalDate.value) errors.push('Evaluation Date is required.');
+    function handleTrendFileUpload(file) {
+        if (!file) return;
+        tDom.uploadStatus.classList.remove('hidden', 'success', 'error');
+        tDom.uploadStatus.textContent = 'Reading file...';
         
-        if (wDom.customDatesToggle.checked) {
-            if (!wDom.customHistStart.value || !wDom.customHistEnd.value) errors.push('Custom Historical Start & End dates are required.');
-        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                
+                if (rows.length === 0) throw new Error("File is empty.");
+                
+                const firstRow = rows[0];
+                const missing = expectedTrendColumns.filter(c => !(c in firstRow));
+                if (missing.length > 0) {
+                    throw new Error(`Missing columns: ${missing.join(', ')}`);
+                }
+                
+                const formatDate = (val) => {
+                    if (!val) return '';
+                    if (val instanceof Date) return val.toISOString().split('T')[0];
+                    if (typeof val === 'number') {
+                        const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+                        return date.toISOString().split('T')[0];
+                    }
+                    return String(val).split('T')[0]; 
+                };
 
-        const rate = parseNum(wDom.currentRate.value);
-        if (isNaN(rate)) errors.push('Current Trend Rate is required.');
-
-        if (wfTMode === 'two-step') {
-            const prate = parseNum(wDom.projectedRate.value);
-            if (isNaN(prate)) errors.push('Projected Trend Rate is required for two-step trending.');
-            if (!wDom.latestData.value) errors.push('Latest Data Point Date is required for two-step trending.');
-        }
-
-        return errors;
+                const parsed = rows.map(r => ({
+                    base_loss: parseNum(r.base_loss),
+                    historical_start_date: formatDate(r.historical_start_date),
+                    historical_end_date: formatDate(r.historical_end_date),
+                    future_start_date: formatDate(r.future_start_date),
+                    policy_term_months: parseInt(r.policy_term_months) || 12,
+                    latest_data_point_date: r.latest_data_point_date ? formatDate(r.latest_data_point_date) : null
+                }));
+                
+                uploadedTrendPortfolioRows = parsed;
+                tDom.uploadStatus.textContent = `Loaded ${parsed.length} rows successfully. Click Calculate to process.`;
+                tDom.uploadStatus.className = 'upload-status success';
+                tDom.portfolioSec.classList.add('hidden');
+            } catch (err) {
+                uploadedTrendPortfolioRows = null;
+                tDom.uploadStatus.textContent = err.message;
+                tDom.uploadStatus.className = 'upload-status error';
+            }
+        };
+        reader.readAsArrayBuffer(file);
     }
 
-    async function runWorkflow() {
-        const errors = validateWorkflow();
-        showErrors(wDom.validationBox, errors);
-        if (errors.length > 0) return;
-
-        wDom.btnRun.disabled = true; wDom.btnRun.textContent = 'Running…';
-        resetPipelineSteps(); setPipelineStep('pipe-step-ol', 'active');
-
+    async function processTrendPortfolio(rows) {
+        if (!rows || rows.length === 0) return;
+        
+        const crate = parseNum(tDom.currentRate.value);
+        let prate = null;
+        let globalLatestData = null;
+        
+        if (tMode === 'two-step') {
+            prate = parseNum(tDom.projectedRate.value);
+            globalLatestData = tDom.latestData.value;
+        }
+        
+        const payload = {
+            baseValue: parseNum(tDom.baseValue.value) || 1, 
+            historicalStartDate: tDom.histStart.value || '2020-01-01',
+            historicalEndDate: tDom.histEnd.value || '2020-12-31',
+            futureStartDate: tDom.futureStart.value || '2021-01-01',
+            policyTermMonths: parseInt(tDom.futureTerm.value) || 12,
+            currentTrendRate: crate,
+            trendMode: tMode,
+            policies: rows
+        };
+        
+        if (tMode === 'two-step') {
+            payload.projectedTrendRate = prate;
+            payload.latestDataPointDate = globalLatestData;
+            
+            payload.policies = rows.map(r => ({
+                ...r,
+                latest_data_point_date: r.latest_data_point_date || globalLatestData
+            }));
+        }
+        
         try {
-            const payload = {
-                onLevelInput: {
-                    historicalPremium: parseNum(wDom.premium.value),
-                    policyEffectiveDate: wDom.policyDate.value,
-                    evaluationDate: wDom.evalDate.value,
-                    policyTerm: parseInt(wDom.policyTerm.value) || 12,
-                    basis: wfBasis,
-                    earningPattern: wDom.earningSelect.value,
-                    customWeights: null,
-                    rateChanges: wfRateRows.filter(r => r.date && r.pct !== '').map(r => ({ date: r.date, pct: parseNum(r.pct) })),
-                },
-                trendConfig: {
-                    currentTrendRate: parseNum(wDom.currentRate.value),
-                    trendMode: wfTMode,
-                    policyTermMonths: parseInt(wDom.futureTerm.value) || 12,
-                    useCustomDates: wDom.customDatesToggle.checked,
-                    futureStartDate: wDom.futureStart.value || wDom.evalDate.value,
-                },
-            };
-
-            if (wDom.customDatesToggle.checked) {
-                payload.trendConfig.customHistoricalStart = wDom.customHistStart.value;
-                payload.trendConfig.customHistoricalEnd = wDom.customHistEnd.value;
-            }
-            if (wfTMode === 'two-step') {
-                payload.trendConfig.projectedTrendRate = parseNum(wDom.projectedRate.value);
-                payload.trendConfig.latestDataPointDate = wDom.latestData.value;
-            }
-
-            const resp = await fetch('/api/workflow', {
+            const resp = await fetch('/api/trend/portfolio', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-
-            if (!resp.ok) { const err = await resp.json(); showErrors(wDom.validationBox, [err.detail || 'Server error']); resetPipelineSteps(); return; }
-            const result = await resp.json();
-
-            // Pipeline animation
-            setPipelineStep('pipe-step-ol', 'done'); await sleep(300);
-            setPipelineStep('pipe-step-trend', 'active'); await sleep(300);
-            setPipelineStep('pipe-step-trend', 'done'); setPipelineStep('pipe-step-final', 'active');
-            await sleep(200); setPipelineStep('pipe-step-final', 'done');
-
-            // Render
-            wDom.olPremium.textContent = fmtCurrency(result.onLevelResult.onLevelPremium);
-            wDom.olFactor.textContent = `Factor: ${fmtFactor(result.onLevelResult.onLevelFactor)}`;
-            wDom.finalValue.textContent = fmtCurrency(result.finalValue);
-            wDom.trendImpact.textContent = `Impact: ${fmtPct(result.trendResult.totalTrendImpact)}`;
             
-            wDom.finalValue.parentElement.classList.remove('highlight');
-            void wDom.finalValue.parentElement.offsetWidth;
-            wDom.finalValue.parentElement.classList.add('highlight');
-
-            const combinedAudit = [
-                { label: '── ON-LEVELING ──', detail: '' },
-                ...result.onLevelResult.auditTrail,
-                { label: '── LOSS TRENDING ──', detail: '' },
-                ...result.trendResult.auditTrail,
-                { label: 'FINAL RESULT', detail: `Workflow Final Value = ${fmtCurrency(result.finalValue)}` },
-            ];
-            renderAudit(wDom.auditTrail, combinedAudit);
-
-            sharedState.workflowResult = result;
-            sharedState.onLevelResult = result.onLevelResult;
-            sharedState.onLevelPremium = result.onLevelResult.onLevelPremium;
-            sharedState.historicalStartDate = wDom.policyDate.value;
-            sharedState.historicalEndDate = wDom.evalDate.value;
-            updateSummaryPanel();
+            if (!resp.ok) {
+                const err = await resp.json();
+                showErrors(tDom.validationBox, [err.detail || 'Portfolio server error']);
+                return;
+            }
+            
+            const result = await resp.json();
+            trendPortfolioResultsData = result.results;
+            renderTrendPortfolioTable(result.results);
+            tDom.portfolioSec.classList.remove('hidden');
         } catch (e) {
-            showErrors(wDom.validationBox, [`Network error: ${e.message}`]); resetPipelineSteps();
-        } finally {
-            wDom.btnRun.disabled = false;
-            wDom.btnRun.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Run Full Workflow`;
+            showErrors(tDom.validationBox, [`Portfolio network error: ${e.message}`]);
+        }
+    }
+    
+    function renderTrendPortfolioTable(results) {
+        tDom.portfolioBody.innerHTML = '';
+        results.slice(0, 50).forEach(r => {
+            const tr = document.createElement('tr');
+            if (r.status === 'Error') {
+                tr.innerHTML = `<td>${r.idx}</td><td colspan="4" class="val-neg">Error processing row</td><td>Error</td>`;
+            } else {
+                tr.innerHTML = `
+                <td>${r.idx}</td>
+                <td>${fmtCurrency(r.base_loss)}</td>
+                <td>${fmtFactor(r.trend_factor)}</td>
+                <td>${fmtCurrency(r.trended_loss)}</td>
+                <td class="${r.impact >= 0 ? 'val-pos' : 'val-neg'}">${fmtPct(r.impact)}</td>
+                <td class="val-pos">Success</td>`;
+            }
+            tDom.portfolioBody.appendChild(tr);
+        });
+        if (results.length > 50) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td colspan="6" style="text-align:center; color:var(--text-dim); font-size: 0.75rem;">Showing first 50 of ${results.length} rows...</td>`;
+            tDom.portfolioBody.appendChild(tr);
         }
     }
 
-    wDom.btnRun.addEventListener('click', runWorkflow);
+    tDom.btnDownload.addEventListener('click', () => {
+        if (!trendPortfolioResultsData) return;
+        
+        const worksheet = XLSX.utils.json_to_sheet(trendPortfolioResultsData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Trend Results");
+        XLSX.writeFile(workbook, "Loss_Trend_Portfolio_Results.xlsx");
+    });
 
 
     // ══════════════════════════════════════════
@@ -740,7 +699,6 @@
     function updateSummaryPanel() {
         sumDom.onlevel.textContent = sharedState.onLevelPremium != null ? fmtCurrency(sharedState.onLevelPremium) : '—';
         sumDom.trend.textContent = sharedState.trendResult ? fmtCurrency(sharedState.trendResult.trendedValue) : '—';
-        sumDom.workflow.textContent = sharedState.workflowResult ? fmtCurrency(sharedState.workflowResult.finalValue) : '—';
     }
 
 
@@ -754,7 +712,6 @@
             const activePanel = document.querySelector('.tab-panel.active');
             if (activePanel && activePanel.id === 'tab-panel-onlevel') calculate();
             else if (activePanel && activePanel.id === 'tab-panel-trend') calculateTrend();
-            else if (activePanel && activePanel.id === 'tab-panel-workflow') runWorkflow();
         }
     });
 
@@ -765,6 +722,5 @@
     addRateRow('2022-07-01', '5');
     addRateRow('2023-01-01', '3');
     addRateRow('2024-01-01', '-2');
-    addWfRateRow('2023-01-01', '5');
 
 })();
