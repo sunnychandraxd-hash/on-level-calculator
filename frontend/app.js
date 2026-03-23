@@ -54,6 +54,7 @@
         aggResultsSec: $('#aggregated-results-section'),
         aggResultsBody: $('#agg-results-body'),
         btnDownloadAgg: $('#btn-download-agg'),
+        onLevelChartCanvas: $('#onlevel-chart'),
         auditTrailSec: $('#audit-trail-section'),
         auditTrail: $('#audit-trail'),
     };
@@ -119,6 +120,7 @@
     let uploadedTrendPortfolioRows = null;
     let trendPortfolioResultsData = null;
     let trendChartInstance = null;
+    let onLevelChartInstance = null;
 
     // ── Helpers ──
     const parseNum = (v) => {
@@ -545,6 +547,8 @@
                 dom.aggResultsBody.appendChild(tr);
             });
             
+            renderOnLevelChart(result.results);
+            
             dom.auditTrail.innerHTML = '';
             const mainAuditStr = document.createElement('div');
             mainAuditStr.className = 'audit-step';
@@ -572,6 +576,72 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>
         Calculate Premium Onleveling`;
         }
+    }
+
+    function renderOnLevelChart(results) {
+        if (!dom.onLevelChartCanvas) return;
+        const labels = results.map(r => String(r.year));
+        const histData = results.map(r => r.historical_premium);
+        const onLevelData = results.map(r => r.on_level_premium);
+
+        if (onLevelChartInstance) onLevelChartInstance.destroy();
+        const ctx = dom.onLevelChartCanvas.getContext('2d');
+
+        onLevelChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Historical Premium',
+                        data: histData,
+                        backgroundColor: 'rgba(148, 163, 184, 0.4)',
+                        borderColor: '#94a3b8',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'On-Level Premium',
+                        data: onLevelData,
+                        backgroundColor: 'rgba(56, 189, 248, 0.8)',
+                        borderColor: '#38bdf8',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return '$' + value.toLocaleString(); },
+                            color: '#94a3b8'
+                        },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    x: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#e2e8f0' } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed.y !== null) { label += '$' + context.parsed.y.toLocaleString(); }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 
     dom.btnCalculate.addEventListener('click', calculate);
