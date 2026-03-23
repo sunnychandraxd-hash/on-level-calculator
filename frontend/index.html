@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=2.0" />
+  <link rel="stylesheet" href="style.css?v=5.0" />
 </head>
 <body>
   <!-- ───────── HEADER ───────── -->
@@ -23,7 +23,7 @@
         </div>
         <div>
           <h1>Actuarial Platform</h1>
-          <p class="subtitle">Multi-Module Premium Analysis Pipeline</p>
+          <p class="subtitle">Multi-Module Actuarial Analysis</p>
         </div>
       </div>
       <div class="header-actions">
@@ -44,7 +44,7 @@
       </button>
       <button class="tab-btn" data-tab="trend">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Loss Trending
+        Loss Trending (WIP)
       </button>
       <div class="tab-indicator" id="tab-indicator"></div>
     </div>
@@ -62,53 +62,104 @@
           Inputs
         </h2>
 
-        <!-- Premium & Dates -->
-        <div class="input-grid">
-          <div class="field">
-            <label for="historical-premium">Historical Premium ($)</label>
-            <input type="text" id="historical-premium" inputmode="decimal" placeholder="e.g. 100,000" autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="policy-effective-date">Policy Effective Date</label>
-            <input type="date" id="policy-effective-date" />
-          </div>
-          <div class="field">
-            <label for="evaluation-date">Evaluation Date</label>
-            <input type="date" id="evaluation-date" />
-          </div>
-          <div class="field">
-            <label for="policy-term">Policy Term (months)</label>
-            <input type="number" id="policy-term" value="12" min="1" max="120" />
-          </div>
-        </div>
-
-        <!-- Options -->
-        <div class="options-row">
-          <div class="field">
-            <label>Basis</label>
-            <div class="toggle-group" id="basis-toggle">
-              <button class="toggle-btn active" data-value="written">Written</button>
-              <button class="toggle-btn" data-value="earned">Earned</button>
+        <div id="wrapper-aggregated-mode">
+          
+          <div class="input-grid" style="grid-template-columns: 1fr; margin-bottom: 1rem;">
+            <div class="field">
+              <label for="evaluation-date"><strong>Current Evaluation Date</strong></label>
+              <input type="date" id="evaluation-date" />
             </div>
           </div>
-          <div class="field">
-            <label for="earning-pattern">Earning Pattern</label>
-            <select id="earning-pattern">
-              <option value="12-linear">12-Month Linear</option>
-              <option value="24-linear">24-Month Linear</option>
-              <option value="custom">Custom Weights</option>
-            </select>
+          
+          <div class="input-grid" style="margin-bottom: 1rem;">
+            <div class="field">
+              <label>Premium Basis</label>
+              <div class="toggle-group" id="agg-basis-toggle">
+                <button class="toggle-btn active" data-value="EP">Earned</button>
+                <button class="toggle-btn" data-value="WP">Written</button>
+              </div>
+            </div>
+            <div class="field" id="agg-dimension-field">
+              <label>Aggregation Dimension</label>
+              <div class="toggle-group" id="agg-dimension-toggle">
+                <button class="toggle-btn active" data-value="CY">Calendar Year (CY)</button>
+                <button class="toggle-btn" data-value="PY">Policy Year (PY)</button>
+              </div>
+            </div>
+            <div class="field" id="agg-term-field">
+              <label for="agg-policy-term">Policy Term (months)</label>
+              <input type="number" id="agg-policy-term" value="12" min="1" max="120" />
+            </div>
+          </div>
+          
+          <div class="input-grid" style="margin-bottom: 1rem;" id="agg-earning-pattern-field">
+            <div class="field">
+              <label for="earning-pattern">Earning Pattern</label>
+              <select id="earning-pattern">
+                <option value="linear">Linear (Equal Weights)</option>
+                <option value="custom">Custom Weights</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="custom-weights-section" class="custom-weights hidden" style="margin-bottom: 1rem;">
+            <label>Custom Monthly Weights (comma-separated 12 values, must sum to 1.0)</label>
+            <input type="text" id="custom-weights" placeholder="e.g. 0.10, 0.10, 0.08, 0.08, 0.08..." />
+          </div>
+          
+          <div class="field" style="margin-bottom: 2rem; padding: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
+             <label style="display:flex; align-items:center; cursor:pointer; margin-bottom: 0;" id="label-mid-term">
+               <input type="checkbox" id="agg-mid-term" style="margin-right:12px; width:18px; height:18px; accent-color: #818cf8; flex-shrink: 0;" />
+               <span style="font-size: 0.95rem; line-height: 1.4;">
+                 <strong style="color: #f8fafc; font-weight: 600;">Mid-Term Changes</strong>
+                 <span style="color: #94a3b8; margin-left: 6px; font-weight: 400;">(Advanced: Rate changes apply to all in-force policies)</span>
+               </span>
+             </label>
+          </div>
+          
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;" />
+
+          <div class="rate-table-header" style="margin-bottom: 0.5rem;">
+            <h3>Portfolio Premium Input</h3>
+            <div class="rate-table-actions">
+              <button id="btn-add-agg-row" class="btn btn-sm btn-accent" title="Add year">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Row
+              </button>
+            </div>
+          </div>
+          
+          <div class="table-wrap" style="margin-bottom: 1rem;">
+            <table id="agg-year-table">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Historical Premium ($)</th>
+                  <th>Exposures (Opt.)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="agg-year-table-body">
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="upload-section">
+            <h3>Portfolio Upload (Optional)</h3>
+            <p class="upload-hint">Upload a CSV/Excel file with columns: <code>year</code>, <code>premium</code>, <code>exposures</code> (optional)</p>
+            <label class="upload-drop" id="agg-upload-drop">
+              <input type="file" id="agg-file-upload" accept=".csv,.xlsx,.xls" hidden />
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Drag &amp; drop or <strong>browse</strong></span>
+            </label>
+            <div id="agg-upload-status" class="upload-status hidden"></div>
           </div>
         </div>
 
-        <!-- Custom Weights -->
-        <div id="custom-weights-section" class="custom-weights hidden">
-          <label>Custom Monthly Weights (comma-separated, must sum to 1.0)</label>
-          <input type="text" id="custom-weights" placeholder="e.g. 0.10, 0.10, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08, 0.08" />
-        </div>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;" />
 
         <!-- Rate Change Table -->
-        <div class="rate-table-header">
+        <div class="rate-table-header" style="margin-top: 1.5rem;">
           <h3>Rate Changes</h3>
           <div class="rate-table-actions">
             <button id="btn-add-row" class="btn btn-sm btn-accent" title="Add rate change">
@@ -136,22 +187,21 @@
         </div>
         <p id="rate-table-empty" class="empty-msg">No rate changes added yet. Click <strong>Add Row</strong> to begin.</p>
 
-        <!-- CSV/Excel Upload -->
-        <div class="upload-section">
-          <h3>Portfolio Upload</h3>
-          <p class="upload-hint">Upload a CSV or Excel file with columns: <code>HistoricalPremium</code>, <code>PolicyEffectiveDate</code>, <code>EvaluationDate</code>, <code>PolicyTerm</code></p>
-          <label class="upload-drop" id="upload-drop">
-            <input type="file" id="file-upload" accept=".csv,.xlsx,.xls" hidden />
+        <div class="upload-section" style="margin-top: 1rem; margin-bottom: 2rem;">
+          <h3>Rate Change Upload (Optional)</h3>
+          <p class="upload-hint">Upload a CSV/Excel file with columns: <code>date</code>, <code>pct</code> <br><em>Tip: Dates should be YYYY-MM-DD. Percents as integers (e.g., 5 for +5%).</em></p>
+          <label class="upload-drop" id="rate-upload-drop">
+            <input type="file" id="rate-file-upload" accept=".csv,.xlsx,.xls" hidden />
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span>Drag &amp; drop or <strong>browse</strong></span>
           </label>
-          <div id="upload-status" class="upload-status hidden"></div>
+          <div id="rate-upload-status" class="upload-status hidden"></div>
         </div>
 
         <!-- Calculate -->
         <button id="btn-calculate" class="btn btn-primary btn-lg">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>
-          Calculate On-Level Premium
+          Calculate Premium Onleveling
         </button>
 
         <!-- Validation Errors -->
@@ -160,75 +210,36 @@
 
       <!-- RIGHT: OUTPUTS -->
       <section class="panel panel-outputs" id="panel-outputs">
-        <!-- KPI Cards -->
-        <div class="kpi-row" id="kpi-row">
-          <div class="kpi-card" id="kpi-factor">
-            <span class="kpi-label">On-Level Factor</span>
-            <span class="kpi-value" id="kpi-factor-value">—</span>
-          </div>
-          <div class="kpi-card" id="kpi-premium">
-            <span class="kpi-label">On-Level Premium</span>
-            <span class="kpi-value" id="kpi-premium-value">—</span>
-          </div>
-          <div class="kpi-card" id="kpi-cumulative">
-            <span class="kpi-label">Cumulative Rate Change</span>
-            <span class="kpi-value" id="kpi-cumulative-value">—</span>
-          </div>
-          <div class="kpi-card" id="kpi-adequacy">
-            <span class="kpi-label">Rate Adequacy</span>
-            <span class="kpi-value" id="kpi-adequacy-value">—</span>
-          </div>
+        <!-- Dashboard Placeholder before calculation -->
+        <div id="placeholder-outputs" class="empty-msg" style="margin-top:2rem;">
+          Results will appear here after calculation.
         </div>
 
-        <!-- Chart -->
-        <div class="chart-section">
+        <!-- Aggregated Results -->
+        <div id="aggregated-results-section" class="portfolio-section hidden">
           <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            Rate Level Over Time
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            On-Level Computation Results
           </h2>
-          <div class="chart-container">
-            <canvas id="rate-chart"></canvas>
-          </div>
-        </div>
-
-        <!-- Rate Level History Table -->
-        <div class="history-section">
-          <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-            Rate Level History
-          </h2>
+          <button id="btn-download-agg" class="btn btn-sm btn-accent">Download CSV</button>
           <div class="table-wrap">
-            <table id="history-table">
+            <table id="agg-results-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Rate Change</th>
-                  <th>Rate Level</th>
-                  <th>Cumulative Change</th>
+                  <th>Year</th>
+                  <th>Hist. Premium ($)</th>
+                  <th>Weighted Avg Rate Level</th>
+                  <th>On-Level Factor</th>
+                  <th>On-Level Premium ($)</th>
                 </tr>
               </thead>
-              <tbody id="history-table-body"></tbody>
+              <tbody id="agg-results-body"></tbody>
             </table>
           </div>
-          <p id="history-empty" class="empty-msg">Run a calculation to see rate level history.</p>
-        </div>
-
-        <!-- Scenarios -->
-        <div class="scenario-section">
-          <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
-            Scenario Comparison
-          </h2>
-          <div class="scenario-controls">
-            <input type="text" id="scenario-name" placeholder="Scenario name" />
-            <button id="btn-save-scenario" class="btn btn-sm btn-accent">Save Scenario</button>
-            <button id="btn-clear-scenarios" class="btn btn-sm btn-ghost">Clear All</button>
-          </div>
-          <div id="scenario-cards" class="scenario-cards"></div>
         </div>
 
         <!-- Audit Trail -->
-        <div class="audit-section">
+        <div class="audit-section hidden" id="audit-trail-section">
           <h2 class="panel-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             Audit Trail
@@ -238,31 +249,6 @@
           </div>
         </div>
 
-        <!-- Portfolio Results -->
-        <div id="portfolio-section" class="portfolio-section hidden">
-          <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            Portfolio Results
-          </h2>
-          <button id="btn-download-portfolio" class="btn btn-sm btn-accent">Download CSV</button>
-          <div class="table-wrap">
-            <table id="portfolio-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Historical Premium</th>
-                  <th>Policy Eff. Date</th>
-                  <th>Eval. Date</th>
-                  <th>Term</th>
-                  <th>On-Level Factor</th>
-                  <th>On-Level Premium</th>
-                  <th>Adequacy</th>
-                </tr>
-              </thead>
-              <tbody id="portfolio-table-body"></tbody>
-            </table>
-          </div>
-        </div>
       </section>
     </main>
   </div>
@@ -409,19 +395,13 @@
           </div>
         </div>
 
-        <!-- Trend Growth Chart -->
-        <div class="chart-section">
-          <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            Value Growth Over Time
-          </h2>
-          <div class="chart-container">
+        <!-- Trend Chart -->
+        <div class="chart-section" style="margin-top: 1.5rem;">
             <canvas id="trend-chart"></canvas>
-          </div>
         </div>
 
-        <!-- Trend Audit Trail -->
-        <div class="audit-section">
+        <!-- Audit Trail -->
+        <div class="audit-section" style="margin-top: 1.5rem;">
           <h2 class="panel-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             Trend Audit Trail
@@ -476,9 +456,9 @@
   </div>
 
   <footer id="app-footer">
-    <p>&copy; 2026 Actuarial Platform &middot; Multi-Module Premium Analysis Pipeline</p>
+    <p>&copy; 2026 Actuarial Platform &middot; Multi-Module Actuarial Analysis</p>
   </footer>
 
-  <script src="app.js?v=3.0"></script>
+  <script src="app.js?v=4.0"></script>
 </body>
 </html>

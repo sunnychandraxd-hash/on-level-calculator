@@ -4,6 +4,7 @@
 
 /* ── Tokens ── */
 :root {
+  color-scheme: dark;
   --bg:           #0b0f1a;
   --bg-surface:   #111827;
   --bg-card:      rgba(17, 24, 39, .72);
@@ -58,7 +59,7 @@ body {
 .logo-group h1 {
   font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
 .subtitle { font-size: .75rem; color: var(--text-muted); font-weight: 400; margin-top: -2px; }
 
@@ -177,8 +178,17 @@ input.interlinked {
   border-color: rgba(56,189,248,.3);
   color: var(--accent);
 }
-select { cursor: pointer; }
+select { 
+  cursor: pointer; 
+  background-color: var(--bg-surface) !important; 
+  color: var(--text) !important; 
+}
 
+select option {
+  background-color: var(--bg-surface) !important;
+  color: var(--text) !important;
+  font-weight: 500;
+}
 .options-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
