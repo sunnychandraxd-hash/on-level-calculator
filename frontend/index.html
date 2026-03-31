@@ -36,16 +36,13 @@
   </header>
 
   <!-- ───────── TAB BAR ───────── -->
-  <nav id="tab-bar">
+  <nav id="tab-bar" style="display: none;">
     <div class="tab-bar-inner">
       <button class="tab-btn active" data-tab="onlevel">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
         Premium On-Leveling
       </button>
-      <button class="tab-btn" data-tab="trend">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Loss Trending (WIP)
-      </button>
+
       <div class="tab-indicator" id="tab-indicator"></div>
     </div>
   </nav>
@@ -252,7 +249,7 @@
   </div>
 
   <!-- ───────── LOSS TRENDING TAB ───────── -->
-  <div class="tab-panel" id="tab-panel-trend">
+  <div class="tab-panel hidden" id="tab-panel-trend" style="display: none;">
     <main class="app-main single-col">
       <section class="panel" id="panel-trend-inputs">
         <h2 class="panel-title">
@@ -439,7 +436,7 @@
 
 
   <!-- ───────── SUMMARY PANEL ───────── -->
-  <div id="summary-panel" class="summary-panel">
+  <div id="summary-panel" class="summary-panel hidden" style="display: none;">
     <div class="summary-inner">
       <div class="summary-item">
         <span class="summary-label">On-Level Result</span>

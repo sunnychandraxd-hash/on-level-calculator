@@ -706,13 +706,7 @@
     dom.btnCalculate.addEventListener('click', calculate);
 
     function updateSummaryPanel() {
-        if (sharedState.onLevelPremium) {
-            sumDom.onlevel.textContent = fmtCurrency(sharedState.onLevelPremium);
-        }
-        if (sharedState.trendResult && sharedState.trendResult.trendedValue) {
-            sumDom.trend.textContent = fmtCurrency(sharedState.trendResult.trendedValue);
-        }
-        $('#summary-panel').classList.add('visible');
+        // Feature disabled for now to hide summary panel
     }
 
     dom.btnReset.addEventListener('click', () => {
