@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=5.0" />
+  <link rel="stylesheet" href="style.css?v=7.0" />
 </head>
 <body>
   <!-- ───────── HEADER ───────── -->
@@ -82,7 +82,7 @@
             <div class="field" id="agg-dimension-field">
               <label>Aggregation Dimension</label>
               <div class="toggle-group" id="agg-dimension-toggle">
-                <button class="toggle-btn active" data-value="CY">Calendar Year (CY)</button>
+                <button class="toggle-btn active" data-value="CY">Calendar Year / Accident Year (CY/AY)</button>
                 <button class="toggle-btn" data-value="PY">Policy Year (PY)</button>
               </div>
             </div>
@@ -107,15 +107,6 @@
             <input type="text" id="custom-weights" placeholder="e.g. 0.10, 0.10, 0.08, 0.08, 0.08..." />
           </div>
           
-          <div class="field" style="margin-bottom: 2rem; padding: 1rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;">
-             <label style="display:flex; align-items:center; cursor:pointer; margin-bottom: 0;" id="label-mid-term">
-               <input type="checkbox" id="agg-mid-term" style="margin-right:12px; width:18px; height:18px; accent-color: #818cf8; flex-shrink: 0;" />
-               <span style="font-size: 0.95rem; line-height: 1.4;">
-                 <strong style="color: #f8fafc; font-weight: 600;">Mid-Term Changes</strong>
-                 <span style="color: #94a3b8; margin-left: 6px; font-weight: 400;">(Advanced: Rate changes apply to all in-force policies)</span>
-               </span>
-             </label>
-          </div>
           
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;" />
 
@@ -221,7 +212,10 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             On-Level Computation Results
           </h2>
-          <button id="btn-download-agg" class="btn btn-sm btn-accent">Download CSV</button>
+          <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+            <button id="btn-download-agg" class="btn btn-sm btn-accent">Download CSV</button>
+            <button id="btn-download-analytic" class="btn btn-sm btn-primary">Download Exact Analytic Excel Rater</button>
+          </div>
           <div class="table-wrap">
             <table id="agg-results-table">
               <thead>
@@ -463,6 +457,6 @@
     <p>&copy; 2026 Actuarial Platform &middot; Multi-Module Actuarial Analysis</p>
   </footer>
 
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=7.1"></script>
 </body>
 </html>

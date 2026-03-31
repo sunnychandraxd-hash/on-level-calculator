@@ -1,3 +1,4 @@
+import calendar
 from datetime import date, timedelta
 from typing import List, Optional
 from models import RateChange, AggregatedOnLevelRequest
@@ -24,113 +25,139 @@ def _get_rate_level_as_of(eval_date: date, rate_changes: List[dict]) -> float:
             break
     return level
 
-def compute_wp_factor(year: int, premium: float, rate_changes: List[dict], current_level: float) -> dict:
-    avg_eff_date = date(year, 7, 1)
-    rate_level = _get_rate_level_as_of(avg_eff_date, rate_changes)
+def analytic_avg_rate_level(year: int, rate_changes: List[dict]) -> float:
+    start_of_year = date(year, 1, 1)
+    days_in_year = 366 if calendar.isleap(year) else 365
     
-    factor = current_level / rate_level if rate_level > 0 else 1.0
+    boundaries = set([-1.0, 1.0])
+    for rc in rate_changes:
+        rc_date = rc["date"]
+        # ONLY rate changes IN the current year act as boundaries!
+        if rc_date.year == year:
+            # Use pure days logic for exact integration boundary
+            days_passed = (rc_date - start_of_year).days
+            z = days_passed / days_in_year
+            boundaries.add(z)
+            
+    z_sorted = sorted(list(boundaries))
+    total_avg_level = 0.0
+    
+    # Base level before any rate changes in this year
+    base_level = _get_rate_level_as_of(start_of_year, rate_changes)
+    
+    for i in range(len(z_sorted) - 1):
+        a = z_sorted[i]
+        b = z_sorted[i+1]
+        
+        if b - a < 1e-9:
+            continue
+            
+        if a >= 0:
+            area = (b - a) - (b*b - a*a) / 2.0
+        elif b <= 0:
+            area = (b - a) + (b*b - a*a) / 2.0
+        else:
+            area_left = (0 - a) + (0 - a*a) / 2.0
+            area_right = (b - 0) - (b*b - 0) / 2.0
+            area = area_left + area_right
+            
+        if a == -1.0:
+            level = base_level
+        else:
+            day_offset = round(a * days_in_year)
+            # Evaluate slightly past the mathematically rounded date to ensure 
+            # any rate changes on boundary dates are included.
+            eval_date = start_of_year + timedelta(days=day_offset + 2)
+            level = _get_rate_level_as_of(eval_date, rate_changes)
+        
+        total_avg_level += area * level
+        
+    return total_avg_level
+
+def compute_simple_day_weighted_factor(year: int, premium: float, rate_changes: List[dict], current_level: float, method_name: str) -> dict:
+    start_date = date(year, 1, 1)
+    end_date_exclusive = date(year + 1, 1, 1)
+    total_days = (end_date_exclusive - start_date).days
+    
+    boundaries = [start_date]
+    for rc in rate_changes:
+        if rc["date"].year == year and rc["date"] not in boundaries:
+            boundaries.append(rc["date"])
+            
+    if end_date_exclusive not in boundaries:
+        boundaries.append(end_date_exclusive)
+        
+    boundaries.sort()
+    
+    weighted_sum = 0.0
+    for i in range(len(boundaries) - 1):
+        segment_start = boundaries[i]
+        segment_end = boundaries[i+1]
+        days_in_segment = (segment_end - segment_start).days
+        if days_in_segment == 0:
+            continue
+        level = _get_rate_level_as_of(segment_start, rate_changes)
+        weighted_sum += level * days_in_segment
+        
+    avg_level = weighted_sum / total_days if total_days > 0 else 1.0
+    factor = current_level / avg_level if avg_level > 0 else 1.0
     olp = premium * factor
     
     return {
         "year": year,
         "historical_premium": premium,
-        "weighted_avg_rate_level": rate_level,
+        "weighted_avg_rate_level": avg_level,
         "factor": factor,
         "on_level_premium": olp,
-        "audit_detail": f"Evaluation Level: {current_level:.6f}. Average Effective Date: {avg_eff_date.isoformat()}. Rate Level on Date: {rate_level:.6f}. (Exposures not used for WP).",
+        "audit_detail": f"Eval Level: {current_level:.6f}. Base Level: {avg_level:.6f}. Used simple day-weighted average for {method_name}.",
     }
 
-def compute_cy_ep_factor(year: int, premium: float, exposures: Optional[float], rate_changes: List[dict], term_months: int, current_level: float, mid_term: bool, custom_weights: Optional[List[float]]) -> dict:
-    total_exposure = exposures if exposures is not None else 1.0
+def compute_cy_ep_factor(year: int, premium: float, exposures: Optional[float], rate_changes: List[dict], term_months: int, current_level: float, custom_weights: Optional[List[float]]) -> dict:
     use_exposures = exposures is not None
     
-    # 12-month numerical integration
-    weighted_sum = 0.0
-    sum_weights = 0.0
-    
-    for month in range(1, 13):
-        point_date = date(year, month, 15)
-        
-        if mid_term:
-            eff_date = point_date
-        else:
-            eff_date = _add_months(point_date, -(term_months // 2))
-            
-        rate_level = _get_rate_level_as_of(eff_date, rate_changes)
-        
-        if custom_weights and len(custom_weights) == 12:
-            w = custom_weights[month - 1]
-        elif use_exposures:
-            w = 1.0 / 12.0  # Equal partition mathematically over year, exposure scales output magnitude logically
-        else:
-            w = 1.0 / 12.0
-            
-        weighted_sum += rate_level * w
-        sum_weights += w
-        
-    avg_level = weighted_sum / sum_weights if sum_weights > 0 else 1.0
-    factor = current_level / avg_level if avg_level > 0 else 1.0
-    
-    olp = premium * factor
-    
-    audit_msg = f"Eval Level: {current_level:.6f}. Base Level: {avg_level:.6f}. "
     if custom_weights and len(custom_weights) == 12:
-        audit_msg += "Used custom 12-month earning weights."
-    else:
-        audit_msg += "Used standard equal weights (1/12). "
-        if use_exposures:
-            audit_msg += f"Annual exposure ({exposures}) acknowledged but uniform monthly distribution intrinsically applied."
-            
-    return {
-        "year": year,
-        "historical_premium": premium,
-        "weighted_avg_rate_level": avg_level,
-        "factor": factor,
-        "on_level_premium": olp,
-        "audit_detail": audit_msg,
-    }
-
-def compute_py_ep_factor(year: int, premium: float, rate_changes: List[dict], term_months: int, current_level: float, mid_term: bool) -> dict:
-    total_months = 24  
-    
-    weighted_sum = 0.0
-    sum_weights = 0.0
-    
-    for m in range(1, total_months + 1):
-        calc_y = year + ((m - 1) // 12)
-        calc_m = ((m - 1) % 12) + 1
-        point_date = date(calc_y, calc_m, 15)
-        
-        if mid_term:
-            eff_date = point_date
-        else:
+        weighted_sum = 0.0
+        sum_weights = 0.0
+        for month in range(1, 13):
+            point_date = date(year, month, 15)
             eff_date = _add_months(point_date, -(term_months // 2))
+            rate_level = _get_rate_level_as_of(eff_date, rate_changes)
+            w = custom_weights[month - 1]
+            weighted_sum += rate_level * w
+            sum_weights += w
             
-        rate_level = _get_rate_level_as_of(eff_date, rate_changes)
+        avg_level = weighted_sum / sum_weights if sum_weights > 0 else 1.0
+        factor = current_level / avg_level if avg_level > 0 else 1.0
+        olp = premium * factor
         
-        if m <= 12:
-            w = m / 144.0
-        else:
-            w = (25 - m) / 144.0
+        audit_msg = f"Eval Level: {current_level:.6f}. Base Level: {avg_level:.6f}. Used custom 12-month earning weights."
+        
+        return {
+            "year": year,
+            "historical_premium": premium,
+            "weighted_avg_rate_level": avg_level,
+            "factor": factor,
+            "on_level_premium": olp,
+            "audit_detail": audit_msg,
+        }
+    else:
+        avg_level = analytic_avg_rate_level(year, rate_changes)
+        factor = current_level / avg_level if avg_level > 0 else 1.0
+        olp = premium * factor
+        
+        audit_msg = f"Eval Level: {current_level:.6f}. Base Level: {avg_level:.6f}. Used exact analytic integral (1-|z|) method. Mathematically exact for annual policies."
             
-        weighted_sum += rate_level * w
-        sum_weights += w
-        
-    avg_level = weighted_sum / sum_weights if sum_weights > 0 else 1.0
-    factor = current_level / avg_level if avg_level > 0 else 1.0
-    
-    olp = premium * factor
-    
-    audit_msg = f"Eval Level: {current_level:.6f}. Base Level: {avg_level:.6f}. Used 24-month triangular weights (exposures ignored by definition)."
-    
-    return {
-        "year": year,
-        "historical_premium": premium,
-        "weighted_avg_rate_level": avg_level,
-        "factor": factor,
-        "on_level_premium": olp,
-        "audit_detail": audit_msg,
-    }
+            
+        return {
+            "year": year,
+            "historical_premium": premium,
+            "weighted_avg_rate_level": avg_level,
+            "factor": factor,
+            "on_level_premium": olp,
+            "audit_detail": audit_msg,
+        }
+
+
 
 
 def calculate_aggregated(req: AggregatedOnLevelRequest) -> dict:
@@ -151,18 +178,16 @@ def calculate_aggregated(req: AggregatedOnLevelRequest) -> dict:
     
     for row in req.premium_by_year:
         if req.basis == "WP":
-            res = compute_wp_factor(row.year, row.premium, sorted_rc, current_rate_level)
+            method_name = f"{req.aggregation} WP" if req.aggregation else "WP"
+            res = compute_simple_day_weighted_factor(row.year, row.premium, sorted_rc, current_rate_level, method_name)
         else:
             if req.aggregation == "CY":
                 res = compute_cy_ep_factor(
                     row.year, row.premium, row.exposures, sorted_rc, req.policy_term_months, 
-                    current_rate_level, req.mid_term_changes, req.custom_weights if req.earning_pattern == "custom" else None
+                    current_rate_level, req.custom_weights if req.earning_pattern == "custom" else None
                 )
             else:  # PY
-                res = compute_py_ep_factor(
-                    row.year, row.premium, sorted_rc, req.policy_term_months, 
-                    current_rate_level, req.mid_term_changes
-                )
+                res = compute_simple_day_weighted_factor(row.year, row.premium, sorted_rc, current_rate_level, "PY EP")
         results.append(res)
         
     audit_trail_summary = f"Processed {len(req.premium_by_year)} years. Basis: {req.basis}. Aggregation: {req.aggregation if req.basis == 'EP' else 'N/A'}."

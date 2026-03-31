@@ -99,7 +99,6 @@ class AggregatedOnLevelRequest(BaseModel):
     policy_term_months: int = 12
     earning_pattern: Optional[str] = "linear"
     custom_weights: Optional[list[float]] = None
-    mid_term_changes: bool = False
     premium_by_year: list[AggregatedYearRow] = Field(default_factory=list)
 
     @model_validator(mode='after')

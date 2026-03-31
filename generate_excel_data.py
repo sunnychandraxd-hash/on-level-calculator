@@ -83,15 +83,19 @@ for y, prm, exp in premium_data:
     row += 1
 
 
-# --- Sheet 3: Calendar Year (CY) EP ---
-ws_cy = workbook.add_worksheet("CY EP Onleveling")
-ws_cy.set_column('A:S', 15)
+# --- Sheet 3: Calendar Year (CY) Continuous Exact ---
+ws_cy = workbook.add_worksheet("CY Continuous Exact")
+ws_cy.set_column('A:F', 18)
 
-ws_cy.write(0, 0, "Mid-Term Changes:", bold)
-ws_cy.write_boolean(0, 1, False, toggle_format)  # B1 cell
-ws_cy.write(0, 2, "<- Change to TRUE for Vertical Line", bold)
+# We define the day grid: -365 to +365 representing e_days index.
+DAY_COL_START = 6  # col G (index 6)
+ws_cy.write(1, DAY_COL_START - 1, "e_days offset ->", bold)
 
-cols = ["Year", "Earned Premium ($)"] + [f"Month {m} Level" for m in range(1,13)] + ["Average CY Level", "CY Factor", "CY OnLevel Premium"]
+for e_days in range(-365, 366):
+    col = DAY_COL_START + (e_days + 365)
+    ws_cy.write(1, col, e_days)
+
+cols = ["Year", "Earned Premium ($)", "CY Factor", "On-Level Premium", "CY Average Rate Level"]
 ws_cy.write_row(2, 0, cols, header)
 
 row = 3
@@ -99,36 +103,32 @@ for y, prm, exp in premium_data:
     ws_cy.write(row, 0, y)
     ws_cy.write(row, 1, prm, currency)
     
-    col = 2
-    for m in range(1, 13):
-        date_expr = f"DATE($A{row+1}, {m}, 15)"
-        # IF($B$1, point_date, _add_months(point_date, -6))
-        eff_date_expr = f"IF($B$1, {date_expr}, EDATE({date_expr}, -6))"
-        vlookup_formula = f"=VLOOKUP({eff_date_expr}, {rate_table_range}, 3, TRUE)"
-        ws_cy.write_formula(row, col, vlookup_formula, num_format)
-        col += 1
+    start_col_name = xlsxwriter.utility.xl_col_to_name(DAY_COL_START)
+    end_col_name = xlsxwriter.utility.xl_col_to_name(DAY_COL_START + 730)
     
-    avg_col_start = xlsxwriter.utility.xl_col_to_name(2)
-    avg_col_end = xlsxwriter.utility.xl_col_to_name(col-1)
-    ws_cy.write_formula(row, col, f"=AVERAGE({avg_col_start}{row+1}:{avg_col_end}{row+1})", num_format)
-    col += 1
+    # We will write the daily calculation in each grid cell: level * area_weight
+    for e_days in range(-365, 366):
+        c = DAY_COL_START + (e_days + 365)
+        c_name = xlsxwriter.utility.xl_col_to_name(c)
+        
+        formula = f'=(MAX(0, 365-ABS({c_name}$2))/(365*365)) * VLOOKUP(DATE($A{row+1}, 1, 1) + {c_name}$2, {rate_table_range}, 3, TRUE)'
+        ws_cy.write_formula(row, c, formula, num_format)
+        
+    avg_formula = f'=SUM({start_col_name}{row+1}:{end_col_name}{row+1})'
+    ws_cy.write_formula(row, 4, avg_formula, num_format)
     
-    avg_lvl_cell = f"{xlsxwriter.utility.xl_col_to_name(col-1)}{row+1}"
-    ws_cy.write_formula(row, col, f"={current_level_ref} / {avg_lvl_cell}", highlight)
-    col += 1
+    ws_cy.write_formula(row, 2, f'={current_level_ref} / E{row+1}', highlight)
+    ws_cy.write_formula(row, 3, f'=B{row+1} * D{row+1}', highlight_c)
     
-    factor_cell = f"{xlsxwriter.utility.xl_col_to_name(col-1)}{row+1}"
-    ws_cy.write_formula(row, col, f"=$B{row+1} * {factor_cell}", highlight_c)
     row += 1
+
+# Hide the massive calculation grid explicitly so the frontend UI is instantly readable
+ws_cy.set_column(DAY_COL_START, DAY_COL_START + 730, 8, None, {'hidden': 1, 'level': 1})
 
 
 # --- Sheet 4: Policy Year (PY) EP ---
 ws_py = workbook.add_worksheet("PY EP Onleveling")
 ws_py.set_column('A:AD', 15)
-
-ws_py.write(0, 0, "Mid-Term Changes:", bold)
-ws_py.write_boolean(0, 1, False, toggle_format)  # B1 cell
-ws_py.write(0, 2, "<- Change to TRUE for Vertical Line", bold)
 
 cols = ["Year", "Earned Premium ($)"] + [f"M{m} Lvl" for m in range(1,25)] + ["Wt. Triangle Avg Level", "PY Factor", "PY OnLevel Premium"]
 ws_py.write_row(2, 0, cols, header)
@@ -146,7 +146,7 @@ for y, prm, exp in premium_data:
     col = 2
     for m in range(1, 25):
         date_expr = f"DATE($A{row+1} + INT(({m}-1)/12), MOD({m}-1,12)+1, 15)"
-        eff_date_expr = f"IF($B$1, {date_expr}, EDATE({date_expr}, -6))"
+        eff_date_expr = f"EDATE({date_expr}, -6)"
         vlookup_formula = f"=VLOOKUP({eff_date_expr}, {rate_table_range}, 3, TRUE)"
         ws_py.write_formula(row, col, vlookup_formula, num_format)
         col += 1

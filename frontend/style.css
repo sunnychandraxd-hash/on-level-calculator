@@ -356,7 +356,7 @@ table input:focus {
 .kpi-value {
   display: block; font-size: 1.5rem; font-weight: 800;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
 .kpi-card.highlight .kpi-value {
   animation: kpiFade .5s ease-out;
@@ -485,7 +485,7 @@ table input:focus {
 .summary-value {
   font-size: .92rem; font-weight: 700;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
 .summary-sep {
   width: 1px; height: 20px;

@@ -31,7 +31,6 @@
         earningSelect: $('#earning-pattern'),
         customSection: $('#custom-weights-section'),
         customWeights: $('#custom-weights'),
-        midTermCheckbox: $('#agg-mid-term'),
         
         btnAddAggRow: $('#btn-add-agg-row'),
         aggYearBody: $('#agg-year-table-body'),
@@ -54,6 +53,7 @@
         aggResultsSec: $('#aggregated-results-section'),
         aggResultsBody: $('#agg-results-body'),
         btnDownloadAgg: $('#btn-download-agg'),
+        btnDownloadAnalytic: $('#btn-download-analytic'),
         onLevelChartCanvas: $('#onlevel-chart'),
         auditTrailSec: $('#audit-trail-section'),
         auditTrail: $('#audit-trail'),
@@ -150,13 +150,14 @@
     // ══════════════════════════════════════════
 
     function updateVisibilities() {
+        // Always show the aggregation dimension toggle for both EP and WP
+        dom.dimToggle.parentElement.classList.remove('hidden');
+
         if (aggBasis === 'WP') {
-            dom.dimToggle.parentElement.classList.add('hidden');
             dom.termField.classList.add('hidden');
             dom.earningPatternField.classList.add('hidden');
             dom.customSection.classList.add('hidden');
         } else {
-            dom.dimToggle.parentElement.classList.remove('hidden');
             dom.termField.classList.remove('hidden');
             if (aggDimension === 'CY') {
                 dom.earningPatternField.classList.remove('hidden');
@@ -245,6 +246,65 @@
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Aggregated Results");
         XLSX.writeFile(workbook, "Premium_OnLevel_Results.xlsx");
+    });
+
+    dom.btnDownloadAnalytic.addEventListener('click', async () => {
+        const errors = validate();
+        if (errors.length > 0) {
+            alert('Please fix configuration errors before generating the Excel Rater.');
+            return;
+        }
+        
+        const customRaw = dom.customWeights.value.split(',').map(s => parseNum(s.trim()));
+        const customWeights = (aggBasis === 'EP' && aggDimension === 'CY' && dom.earningSelect.value === 'custom') ? customRaw : null;
+
+        const payload = {
+            rate_changes: rateRows.filter(r => r.date && r.pct !== '').map(r => ({ date: r.date, pct: parseNum(r.pct) })),
+            premium_by_year: aggRows.map(r => ({
+                year: r.year,
+                premium: parseNum(r.premium),
+                exposures: r.exposures ? parseNum(r.exposures) : null
+            })),
+            aggregation: aggDimension,
+            basis: aggBasis,
+            policy_term_months: parseInt(dom.termInput.value) || 12,
+            evaluation_date: dom.evalDate.value,
+            earning_pattern: (aggBasis === 'EP' && aggDimension === 'CY') ? dom.earningSelect.value : null,
+            custom_weights: customWeights
+        };
+
+        dom.btnDownloadAnalytic.disabled = true;
+        const originalText = dom.btnDownloadAnalytic.textContent;
+        dom.btnDownloadAnalytic.textContent = 'Generating Engine...';
+
+        try {
+            const resp = await fetch('/api/excel/analytic', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json();
+                alert('Server error: ' + (err.detail || 'Failed to generate Excel'));
+                return;
+            }
+
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'Exact_Analytic_Rater.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        } finally {
+            dom.btnDownloadAnalytic.disabled = false;
+            dom.btnDownloadAnalytic.textContent = originalText;
+        }
     });
 
     // Rate Changes
@@ -507,7 +567,6 @@
                 basis: aggBasis,
                 policy_term_months: parseInt(dom.termInput.value) || 12,
                 evaluation_date: dom.evalDate.value,
-                mid_term_changes: dom.midTermCheckbox.checked,
                 earning_pattern: (aggBasis === 'EP' && aggDimension === 'CY') ? dom.earningSelect.value : null,
                 custom_weights: customWeights
             };

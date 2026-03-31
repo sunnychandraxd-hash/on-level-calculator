@@ -6,7 +6,7 @@ import pathlib
 import sys
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -21,6 +21,7 @@ from models import (
 )
 from trend import apply_loss_trend
 from parallelogram import calculate_aggregated
+from excel_textbook import generate_textbook_rater_stream
 
 # ── App ──
 app = FastAPI(title="Actuarial Platform API", version="3.0.0")
@@ -45,6 +46,20 @@ def api_onlevel_aggregated(req: AggregatedOnLevelRequest):
         return AggregatedOnLevelResponse(**result)
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
+
+
+@app.post("/api/excel/analytic")
+def api_excel_analytic(req: AggregatedOnLevelRequest):
+    """Generate the exact analytic Rater Excel file natively."""
+    try:
+        excel_io = generate_textbook_rater_stream(req)
+        return StreamingResponse(
+            excel_io,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=Exact_Analytic_Rater.xlsx"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating Excel: {str(e)}")
 
 
 @app.post("/api/trend", response_model=LossTrendResponse)
