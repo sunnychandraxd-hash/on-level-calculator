@@ -169,6 +169,16 @@ input:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
+
+/* Remove spin buttons from number input */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
 input.invalid {
   border-color: var(--danger);
   box-shadow: 0 0 0 3px rgba(248,113,113,.15);
@@ -231,6 +241,7 @@ select option {
 table {
   width: 100%; border-collapse: collapse;
   font-size: .82rem;
+  table-layout: fixed;
 }
 thead th {
   text-align: left; padding: .5rem .6rem;
