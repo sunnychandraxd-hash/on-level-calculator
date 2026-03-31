@@ -192,8 +192,12 @@
 
     function addAggRow() {
         aggRowCounter++;
-        const lastYear = aggRows.length > 0 ? aggRows[aggRows.length-1].year + 1 : new Date().getFullYear() - 1;
-        aggRows.push({ id: aggRowCounter, year: lastYear, premium: '', exposures: '' });
+        let nextYear = '';
+        if (aggRows.length > 0) {
+            const prev = parseInt(aggRows[aggRows.length-1].year);
+            if (!isNaN(prev)) nextYear = prev + 1;
+        }
+        aggRows.push({ id: aggRowCounter, year: nextYear, premium: '', exposures: '' });
         renderAggTable();
     }
     
@@ -208,7 +212,7 @@
         aggRows.forEach(row => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><input type="number" class="agg-year-input" data-id="${row.id}" value="${row.year}" style="width:100%" /></td>
+                <td><input type="number" class="agg-year-input" data-id="${row.id}" value="${row.year}" placeholder="2020" style="width:100%" /></td>
                 <td><input type="text" class="agg-premium-input" data-id="${row.id}" value="${row.premium}" placeholder="1000000" inputmode="decimal" style="width:100%" /></td>
                 <td><input type="text" class="agg-exp-input" data-id="${row.id}" value="${row.exposures}" placeholder="optional" inputmode="decimal" style="width:100%" /></td>
                 <td style="text-align:right;">
