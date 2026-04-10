@@ -527,3 +527,48 @@ table input:focus {
   .scenario-cards { grid-template-columns: 1fr; }
   .summary-inner { flex-wrap: wrap; gap: .8rem; }
 }
+
+/* ── On-Leveling 2: Diagram Canvas ── */
+.diagram-canvas-container {
+  position: relative;
+  background: #0d1117;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: .75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.diagram-canvas-container canvas {
+  display: block;
+  max-width: 100%;
+}
+
+/* ── Diagram Tooltip ── */
+.diagram-tooltip {
+  display: none;
+  position: fixed;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
+  padding: .5rem .75rem;
+  font-size: .78rem;
+  color: var(--text);
+  line-height: 1.5;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  max-width: 240px;
+}
+
+/* ── Total Rows in Results Table ── */
+tr.total-row {
+  background: var(--bg-card-alt) !important;
+  border-top: 2px solid var(--glass-border);
+}
+tr.total-row td {
+  font-weight: 700;
+  color: var(--accent);
+}
+tr.area-pass td:last-child { color: var(--success); }
+tr.area-fail td:last-child { color: var(--danger); }

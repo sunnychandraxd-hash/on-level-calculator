@@ -3,18 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Actuarial Platform — On-Level, Trend & Workflow</title>
+  <title>Actuarial Platform â€” On-Level Calculator</title>
   <meta name="description" content="Connected actuarial pipeline: on-leveling, trend analysis, and chained workflow computations. Built for actuaries." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=8.0" />
+  <link rel="stylesheet" href="style.css?v=9.0" />
 </head>
 <body>
-  <!-- ───────── HEADER ───────── -->
+  <!-- â”€â”€â”€â”€â”€â”€â”€â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
   <header id="app-header">
     <div class="header-inner">
       <div class="logo-group">
@@ -35,133 +33,100 @@
     </div>
   </header>
 
-  <!-- ───────── TAB BAR ───────── -->
-  <nav id="tab-bar" style="display: none;">
+  <!-- â”€â”€â”€â”€â”€â”€â”€â”€â”€ TAB BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <nav id="tab-bar">
     <div class="tab-bar-inner">
-      <button class="tab-btn active" data-tab="onlevel">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
-        Premium On-Leveling
+      <button class="tab-btn active" data-tab="onlevel2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="21" x2="21" y2="3"/><line x1="3" y1="12" x2="12" y2="3"/></svg>
+        On-Leveling 2 (CY EP)
+      </button>
+      <button class="tab-btn" data-tab="onlevel3">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 21 12 3 21 21 3 21"/><line x1="7" y1="14" x2="17" y2="14"/></svg>
+        On-Leveling 3 (PY EP)
       </button>
 
       <div class="tab-indicator" id="tab-indicator"></div>
     </div>
   </nav>
 
-  <!-- ═════════ TAB PANELS ═════════ -->
+  <!-- â•â•â•â•â•â•â•â•â• TAB PANELS â•â•â•â•â•â•â•â•â• -->
 
-  <!-- ───────── ON-LEVELING TAB ───────── -->
-  <div class="tab-panel active" id="tab-panel-onlevel">
+  <!-- â”€â”€â”€â”€â”€â”€â”€â”€â”€ ON-LEVELING 2 TAB (CY EP Geometric) â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <div class="tab-panel active" id="tab-panel-onlevel2">
     <main class="app-main two-col">
       <!-- LEFT: INPUTS -->
-      <section class="panel panel-inputs" id="panel-inputs">
+      <section class="panel panel-inputs" id="panel-ol2-inputs">
         <h2 class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          Inputs
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="21" x2="21" y2="3"/></svg>
+          CY Earned Premium â€” Diagram Method
         </h2>
+        <p style="font-size: .78rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Provide rate change dates and percentages. The system will draw the parallelogram diagram with connected calendar-year squares and compute area-weighted rate levels.
+        </p>
 
-        <div id="wrapper-aggregated-mode">
-          
-          <div class="input-grid" style="grid-template-columns: 1fr; margin-bottom: 1rem;">
-            <div class="field">
-              <label for="evaluation-date"><strong>Current Evaluation Date</strong></label>
-              <input type="date" id="evaluation-date" />
-            </div>
-          </div>
-          
-          <div class="input-grid" style="margin-bottom: 1rem;">
-            <div class="field">
-              <label>Premium Basis</label>
-              <div class="toggle-group" id="agg-basis-toggle">
-                <button class="toggle-btn active" data-value="EP">Earned</button>
-                <button class="toggle-btn" data-value="WP">Written</button>
-              </div>
-            </div>
-            <div class="field" id="agg-dimension-field">
-              <label>Aggregation Dimension</label>
-              <div class="toggle-group" id="agg-dimension-toggle">
-                <button class="toggle-btn active" data-value="CY">Calendar Year / Accident Year (CY/AY)</button>
-                <button class="toggle-btn" data-value="PY">Policy Year (PY)</button>
-              </div>
-            </div>
-            <div class="field" id="agg-term-field">
-              <label for="agg-policy-term">Policy Term (months)</label>
-              <input type="number" id="agg-policy-term" value="12" min="1" max="120" />
-            </div>
-          </div>
-          
-          <div class="input-grid" style="margin-bottom: 1rem;" id="agg-earning-pattern-field">
-            <div class="field">
-              <label for="earning-pattern">Earning Pattern</label>
-              <select id="earning-pattern">
-                <option value="linear">Linear (Equal Weights)</option>
-                <option value="custom">Custom Weights</option>
-              </select>
-            </div>
-          </div>
-
-          <div id="custom-weights-section" class="custom-weights hidden" style="margin-bottom: 1rem;">
-            <label>Custom Monthly Weights (comma-separated 12 values, must sum to 1.0)</label>
-            <input type="text" id="custom-weights" placeholder="e.g. 0.10, 0.10, 0.08, 0.08, 0.08..." />
-          </div>
-          
-          
-          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;" />
-
-          <div class="rate-table-header" style="margin-bottom: 0.5rem;">
-            <h3>Portfolio Premium Input</h3>
-            <div class="rate-table-actions">
-              <button id="btn-add-agg-row" class="btn btn-sm btn-accent" title="Add year">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Row
-              </button>
-            </div>
-          </div>
-          
-          <div class="table-wrap" style="margin-bottom: 1rem;">
-            <table id="agg-year-table">
-              <thead>
-                <tr>
-                  <th style="width: 22%;">Year</th>
-                  <th style="width: 45%;">Historical Premium ($)</th>
-                  <th style="width: 25%;">Exposures (Opt.)</th>
-                  <th style="width: 8%;"></th>
-                </tr>
-              </thead>
-              <tbody id="agg-year-table-body">
-              </tbody>
-            </table>
-          </div>
-          
-          <div class="upload-section">
-            <h3>Portfolio Upload (Optional)</h3>
-            <p class="upload-hint">Upload a CSV/Excel file with columns: <code>year</code>, <code>premium</code>, <code>exposures</code> (optional)</p>
-            <label class="upload-drop" id="agg-upload-drop">
-              <input type="file" id="agg-file-upload" accept=".csv,.xlsx,.xls" hidden />
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <span>Drag &amp; drop or <strong>browse</strong></span>
-            </label>
-            <div id="agg-upload-status" class="upload-status hidden"></div>
+        <!-- Evaluation Date -->
+        <div class="input-grid" style="grid-template-columns: 1fr; margin-bottom: 1rem;">
+          <div class="field">
+            <label for="ol2-eval-date"><strong>Current Evaluation Date</strong></label>
+            <input type="date" id="ol2-eval-date" />
           </div>
         </div>
 
-        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 1.5rem 0;" />
-
-        <!-- Rate Change Table -->
-        <div class="rate-table-header" style="margin-top: 1.5rem;">
-          <h3>Rate Changes</h3>
+        <!-- Portfolio Premium Input -->
+        <div class="rate-table-header" style="margin-bottom: 0.5rem; margin-top: 0.5rem;">
+          <h3>Portfolio Premium Input</h3>
           <div class="rate-table-actions">
-            <button id="btn-add-row" class="btn btn-sm btn-accent" title="Add rate change">
+            <button id="ol2-btn-add-premium-row" class="btn btn-sm btn-accent" title="Add year">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Add Row
             </button>
-            <button id="btn-sort-rows" class="btn btn-sm btn-ghost" title="Sort by date">
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-bottom: 1rem;">
+          <table id="ol2-premium-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Year</th>
+                <th style="width: 45%;">Historical Premium ($)</th>
+                <th style="width: 25%;">Exposures (Opt.)</th>
+                <th style="width: 8%;"></th>
+              </tr>
+            </thead>
+            <tbody id="ol2-premium-table-body"></tbody>
+          </table>
+        </div>
+        <p id="ol2-premium-table-empty" class="empty-msg" style="display:none;">No premium rows added yet.</p>
+
+        <!-- Portfolio Upload -->
+        <div class="upload-section" style="margin-bottom: 1.5rem;">
+          <h3>Portfolio Upload (Optional)</h3>
+          <p class="upload-hint">Upload a CSV/Excel file with columns: <code>year</code>, <code>premium</code>, <code>exposures</code> (optional)</p>
+          <label class="upload-drop" id="ol2-premium-upload-drop" for="ol2-premium-file-upload">
+            <input type="file" id="ol2-premium-file-upload" accept=".csv,.xlsx,.xls" style="display:none" />
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Drag &amp; drop or <strong>browse</strong></span>
+          </label>
+          <div id="ol2-premium-upload-status" class="upload-status hidden"></div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.25rem 0;" />
+
+        <!-- Rate Change Table -->
+        <div class="rate-table-header">
+          <h3>Rate Changes</h3>
+          <div class="rate-table-actions">
+            <button id="ol2-btn-add-row" class="btn btn-sm btn-accent" title="Add rate change">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Row
+            </button>
+            <button id="ol2-btn-sort-rows" class="btn btn-sm btn-ghost" title="Sort by date">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/></svg>
               Sort
             </button>
           </div>
         </div>
         <div class="table-wrap">
-          <table id="rate-table">
+          <table id="ol2-rate-table">
             <thead>
               <tr>
                 <th style="width: 45%;">Effective Date</th>
@@ -169,291 +134,307 @@
                 <th style="width: 10%;"></th>
               </tr>
             </thead>
-            <tbody id="rate-table-body">
+            <tbody id="ol2-rate-table-body">
             </tbody>
           </table>
         </div>
-        <p id="rate-table-empty" class="empty-msg">No rate changes added yet. Click <strong>Add Row</strong> to begin.</p>
+        <p id="ol2-rate-table-empty" class="empty-msg">No rate changes added yet. Click <strong>Add Row</strong> to begin.</p>
 
-        <div class="upload-section" style="margin-top: 1rem; margin-bottom: 2rem;">
+        <!-- Upload -->
+        <div class="upload-section" style="margin-top: 1rem; margin-bottom: 1.5rem;">
           <h3>Rate Change Upload (Optional)</h3>
-          <p class="upload-hint">Upload a CSV/Excel file with columns: <code>date</code>, <code>pct</code> <br><em>Tip: Dates should be YYYY-MM-DD. Percents as integers (e.g., 5 for +5%).</em></p>
-          <label class="upload-drop" id="rate-upload-drop">
-            <input type="file" id="rate-file-upload" accept=".csv,.xlsx,.xls" hidden />
+          <p class="upload-hint">Upload a CSV/Excel file with columns: <code>date</code>, <code>pct</code><br><em>Dates as YYYY-MM-DD. Percents as integers (e.g., 5 for +5%).</em></p>
+          <label class="upload-drop" id="ol2-upload-drop" for="ol2-file-upload">
+            <input type="file" id="ol2-file-upload" accept=".csv,.xlsx,.xls" style="display:none" />
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span>Drag &amp; drop or <strong>browse</strong></span>
           </label>
-          <div id="rate-upload-status" class="upload-status hidden"></div>
+          <div id="ol2-upload-status" class="upload-status hidden"></div>
         </div>
 
         <!-- Calculate -->
-        <button id="btn-calculate" class="btn btn-primary btn-lg">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/></svg>
-          Calculate Premium Onleveling
+        <button id="ol2-btn-calculate" class="btn btn-primary btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="21" x2="21" y2="3"/><line x1="3" y1="12" x2="12" y2="3"/></svg>
+          Generate Diagram &amp; Compute Areas
         </button>
 
-        <!-- Validation Errors -->
-        <div id="validation-errors" class="validation-errors hidden"></div>
+        <div id="ol2-validation-errors" class="validation-errors hidden"></div>
       </section>
 
       <!-- RIGHT: OUTPUTS -->
-      <section class="panel panel-outputs" id="panel-outputs">
-        <!-- Dashboard Placeholder before calculation -->
-        <div id="placeholder-outputs" class="empty-msg" style="margin-top:2rem;">
-          Results will appear here after calculation.
+      <section class="panel panel-outputs" id="panel-ol2-outputs">
+        <div id="ol2-placeholder" class="empty-msg" style="margin-top: 2rem;">
+          Add rate changes and click <strong>Generate Diagram</strong> to see the parallelogram diagram.
         </div>
 
-        <!-- Aggregated Results -->
-        <div id="aggregated-results-section" class="portfolio-section hidden">
+        <!-- Canvas Diagram -->
+        <div id="ol2-diagram-section" class="hidden">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="21" x2="21" y2="3"/></svg>
+            Parallelogram Diagram
+          </h2>
+          <div class="diagram-canvas-container">
+            <canvas id="ol2-canvas"></canvas>
+            <div id="ol2-tooltip" class="diagram-tooltip"></div>
+          </div>
+        </div>
+
+        <!-- Results Table -->
+        <div id="ol2-results-section" class="hidden" style="margin-top: 1.5rem;">
           <h2 class="panel-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            On-Level Computation Results
+            Region Areas &amp; Rate Levels
           </h2>
-          <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
-            <button id="btn-download-agg" class="btn btn-sm btn-accent">Download CSV</button>
-            <button id="btn-download-analytic" class="btn btn-sm btn-primary">Download Exact Analytic Excel Rater</button>
-          </div>
-          <div class="table-wrap">
-            <table id="agg-results-table">
+          <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
+            <table id="ol2-results-table">
               <thead>
                 <tr>
                   <th>Year</th>
+                  <th>#</th>
+                  <th>Region</th>
+                  <th>Vertices</th>
+                  <th>Rate Level</th>
+                  <th>Area %</th>
                   <th>Hist. Premium ($)</th>
-                  <th>Weighted Avg Rate Level</th>
-                  <th>On-Level Factor</th>
                   <th>On-Level Premium ($)</th>
                 </tr>
               </thead>
-              <tbody id="agg-results-body"></tbody>
+              <tbody id="ol2-results-body"></tbody>
             </table>
           </div>
-          
-          <div class="chart-section" style="margin-top: 1.5rem; height: 350px;">
-            <canvas id="onlevel-chart"></canvas>
+        </div>
+
+        <!-- Weighted Avg Summary -->
+        <div id="ol2-summary-section" class="hidden" style="margin-top: 1.5rem;">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Weighted Average Rate Levels
+          </h2>
+          <div class="table-wrap">
+            <table id="ol2-summary-table">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Weighted Avg Rate Level</th>
+                  <th>Current Rate Level</th>
+                  <th>On-Level Factor</th>
+                  <th>Hist. Premium ($)</th>
+                  <th>On-Level Premium ($)</th>
+                </tr>
+              </thead>
+              <tbody id="ol2-summary-body"></tbody>
+            </table>
           </div>
         </div>
 
         <!-- Audit Trail -->
-        <div class="audit-section hidden" id="audit-trail-section">
+        <div id="ol2-audit-section" class="hidden" style="margin-top: 1.5rem;">
           <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             Audit Trail
           </h2>
-          <div id="audit-trail" class="audit-trail">
-            <p class="empty-msg">Calculation audit trail will appear here.</p>
-          </div>
+          <div id="ol2-audit-trail" class="audit-trail"></div>
         </div>
-
       </section>
     </main>
   </div>
 
-  <!-- ───────── LOSS TRENDING TAB ───────── -->
-  <div class="tab-panel hidden" id="tab-panel-trend" style="display: none;">
-    <main class="app-main single-col">
-      <section class="panel" id="panel-trend-inputs">
+  <!-- â”€â”€â”€â”€â”€â”€â”€â”€â”€ ON-LEVELING 3 TAB (PY EP Parallelogram) â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <div class="tab-panel" id="tab-panel-onlevel3">
+    <main class="app-main two-col">
+      <!-- LEFT: INPUTS -->
+      <section class="panel panel-inputs" id="panel-ol3-inputs">
         <h2 class="panel-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Loss Trend Inputs
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 21 12 3 21 21 3 21"/><line x1="7" y1="14" x2="17" y2="14"/></svg>
+          PY Earned Premium â€” Parallelogram Method
         </h2>
+        <p style="font-size: .78rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Enter rate change dates and percentages. The system draws the Policy Year parallelogram split into parallel strips â€” one per rate level. Weights are pure day-count proportions. Each Policy Year is independent.
+        </p>
 
-
-        <!-- Base Value -->
-        <div class="input-grid" style="grid-template-columns:1fr;margin-bottom:.75rem;">
+        <!-- Evaluation Date -->
+        <div class="input-grid" style="grid-template-columns: 1fr; margin-bottom: 1rem;">
           <div class="field">
-            <label for="trend-base-value">Base Value — Historical Losses ($)</label>
-            <input type="text" id="trend-base-value" inputmode="decimal" placeholder="e.g. 500,000" autocomplete="off" />
+            <label for="ol3-eval-date"><strong>Current Evaluation Date</strong></label>
+            <input type="date" id="ol3-eval-date" />
           </div>
         </div>
 
-        <!-- Historical Period -->
-        <div class="workflow-section-header"><h3>Historical Experience Period</h3></div>
-        <div class="input-grid">
-          <div class="field">
-            <label for="trend-hist-start">Period Start</label>
-            <input type="date" id="trend-hist-start" />
-          </div>
-          <div class="field">
-            <label for="trend-hist-end">Period End</label>
-            <input type="date" id="trend-hist-end" />
+        <!-- Portfolio Premium Input -->
+        <div class="rate-table-header" style="margin-bottom: 0.5rem;">
+          <h3>Portfolio Premium Input</h3>
+          <div class="rate-table-actions">
+            <button id="ol3-btn-add-premium-row" class="btn btn-sm btn-accent" title="Add year">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Row
+            </button>
           </div>
         </div>
-
-        <!-- Future Period -->
-        <div class="workflow-section-header" style="margin-top:.75rem;"><h3>Future Coverage Period</h3></div>
-        <div class="input-grid">
-          <div class="field">
-            <label for="trend-future-start">Future Effective Date</label>
-            <input type="date" id="trend-future-start" />
-          </div>
-          <div class="field">
-            <label for="trend-future-term">Policy Term (months)</label>
-            <input type="number" id="trend-future-term" value="12" min="1" max="120" />
-          </div>
+        <div class="table-wrap" style="margin-bottom: 1rem;">
+          <table id="ol3-premium-table">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Year</th>
+                <th style="width: 45%;">Historical Premium ($)</th>
+                <th style="width: 25%;">Exposures (Opt.)</th>
+                <th style="width: 8%;"></th>
+              </tr>
+            </thead>
+            <tbody id="ol3-premium-table-body"></tbody>
+          </table>
         </div>
+        <p id="ol3-premium-table-empty" class="empty-msg" style="display:none;">No premium rows added yet.</p>
 
-        <!-- Trend Mode + Rates -->
-        <div class="workflow-section-header" style="margin-top:.75rem;"><h3>Trend Rates</h3></div>
-        <div class="options-row">
-          <div class="field">
-            <label>Trend Mode</label>
-            <div class="toggle-group" id="trend-mode-toggle">
-              <button class="toggle-btn active" data-value="single">Single Step</button>
-              <button class="toggle-btn" data-value="two-step">Two Step</button>
-            </div>
-          </div>
-          <div class="field">
-            <label for="trend-current-rate">Current Trend Rate (%)</label>
-            <input type="text" id="trend-current-rate" inputmode="decimal" placeholder="e.g. 3.0" autocomplete="off" />
-          </div>
-        </div>
-
-        <!-- Two-step fields (hidden by default) -->
-        <div id="two-step-fields" class="input-grid hidden" style="margin-top:.5rem;">
-          <div class="field">
-            <label for="trend-projected-rate">Projected Trend Rate (%)</label>
-            <input type="text" id="trend-projected-rate" inputmode="decimal" placeholder="e.g. 2.0" autocomplete="off" />
-          </div>
-          <div class="field">
-            <label for="trend-latest-data">Latest Data Point Date</label>
-            <input type="date" id="trend-latest-data" />
-          </div>
-        </div>
-
-        <!-- Loss Trending Portfolio Upload -->
-        <div class="upload-section" style="margin-top:1.5rem; margin-bottom:1rem;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3>Portfolio Upload (Optional)</h3>
-            <button id="btn-trend-template" class="btn btn-sm btn-ghost">Download Template</button>
-          </div>
-          <p class="upload-hint">Upload a CSV/Excel file with columns: <code>base_loss</code>, <code>historical_start_date</code>, <code>historical_end_date</code>, <code>future_start_date</code>, <code>policy_term_months</code>. <br><em>Tip: Dates should be in YYYY-MM-DD format.</em></p>
-          <label class="upload-drop" id="trend-upload-drop">
-            <input type="file" id="trend-file-upload" accept=".csv,.xlsx,.xls" hidden />
+        <!-- Portfolio Upload -->
+        <div class="upload-section" style="margin-bottom: 1.5rem;">
+          <h3>Portfolio Upload (Optional)</h3>
+          <p class="upload-hint">Upload a CSV/Excel file with columns: <code>year</code>, <code>premium</code>, <code>exposures</code> (optional)</p>
+          <label class="upload-drop" id="ol3-premium-upload-drop" for="ol3-premium-file-upload">
+            <input type="file" id="ol3-premium-file-upload" accept=".csv,.xlsx,.xls" style="display:none" />
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span>Drag &amp; drop or <strong>browse</strong></span>
           </label>
-          <div id="trend-upload-status" class="upload-status hidden"></div>
+          <div id="ol3-premium-upload-status" class="upload-status hidden"></div>
         </div>
 
-        <button id="btn-calculate-trend" class="btn btn-primary btn-lg">
-          <span class="btn-spinner hidden" id="trend-spinner" style="display:inline-block; animation: spin 1s linear infinite; margin-right:8px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
-          </span>
-          <svg id="trend-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          <span id="trend-btn-text">Calculate Loss Trend</span>
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.25rem 0;" />
+
+        <!-- Rate Change Table -->
+        <div class="rate-table-header">
+          <h3>Rate Changes</h3>
+          <div class="rate-table-actions">
+            <button id="ol3-btn-add-row" class="btn btn-sm btn-accent" title="Add rate change">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Row
+            </button>
+            <button id="ol3-btn-sort-rows" class="btn btn-sm btn-ghost" title="Sort by date">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/></svg>
+              Sort
+            </button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="ol3-rate-table">
+            <thead>
+              <tr>
+                <th style="width: 45%;">Effective Date</th>
+                <th style="width: 45%;">Rate Change (%)</th>
+                <th style="width: 10%;"></th>
+              </tr>
+            </thead>
+            <tbody id="ol3-rate-table-body"></tbody>
+          </table>
+        </div>
+        <p id="ol3-rate-table-empty" class="empty-msg">No rate changes added yet. Click <strong>Add Row</strong> to begin.</p>
+
+        <!-- Upload -->
+        <div class="upload-section" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+          <h3>Rate Change Upload (Optional)</h3>
+          <p class="upload-hint">Upload a CSV/Excel file with columns: <code>date</code>, <code>pct</code><br><em>Dates as YYYY-MM-DD. Percents as integers (e.g., 5 for +5%).</em></p>
+          <label class="upload-drop" id="ol3-upload-drop" for="ol3-file-upload">
+            <input type="file" id="ol3-file-upload" accept=".csv,.xlsx,.xls" style="display:none" />
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Drag &amp; drop or <strong>browse</strong></span>
+          </label>
+          <div id="ol3-upload-status" class="upload-status hidden"></div>
+        </div>
+
+        <!-- Calculate -->
+        <button id="ol3-btn-calculate" class="btn btn-primary btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 21 12 3 21 21 3 21"/><line x1="7" y1="14" x2="17" y2="14"/></svg>
+          Generate PY Diagram &amp; Compute Strips
         </button>
-        <div id="trend-validation-errors" class="validation-errors hidden"></div>
+
+        <div id="ol3-validation-errors" class="validation-errors hidden"></div>
       </section>
 
-      <!-- Trend Outputs -->
-      <section class="panel" id="panel-trend-outputs">
-        <div class="kpi-row" id="trend-kpi-row">
-          <div class="kpi-card">
-            <span class="kpi-label">Trended Value</span>
-            <span class="kpi-value" id="trend-kpi-trended">—</span>
-          </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Trend Factor</span>
-            <span class="kpi-value" id="trend-kpi-factor">—</span>
-          </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Trend Period</span>
-            <span class="kpi-value" id="trend-kpi-time">—</span>
-          </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Total Trend Impact</span>
-            <span class="kpi-value" id="trend-kpi-impact">—</span>
+      <!-- RIGHT: OUTPUTS -->
+      <section class="panel panel-outputs" id="panel-ol3-outputs">
+        <div id="ol3-placeholder" class="empty-msg" style="margin-top: 2rem;">
+          Add rate changes and click <strong>Generate PY Diagram</strong> to see the parallelogram strips.
+        </div>
+
+        <!-- Canvas Diagram -->
+        <div id="ol3-diagram-section" class="hidden">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 21 12 3 21 21 3 21"/><line x1="7" y1="14" x2="17" y2="14"/></svg>
+            PY Parallelogram Diagram
+          </h2>
+          <p style="font-size:.74rem; color:var(--text-muted); margin-bottom:.6rem;">
+            Each colored strip is a time segment. Width âˆ days. Weights are day-count proportions. Rate change lines are parallel to the parallelogram edges.
+          </p>
+          <div class="diagram-canvas-container">
+            <canvas id="ol3-canvas"></canvas>
+            <div id="ol3-tooltip" class="diagram-tooltip"></div>
           </div>
         </div>
 
-        <!-- Computed Dates -->
-        <div class="kpi-row" style="margin-top:0;">
-          <div class="kpi-card">
-            <span class="kpi-label">Historical Avg Date</span>
-            <span class="kpi-value" id="trend-kpi-hist-avg" style="font-size:1rem;">—</span>
-          </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Future Avg Date</span>
-            <span class="kpi-value" id="trend-kpi-future-avg" style="font-size:1rem;">—</span>
+        <!-- Strips Results Table -->
+        <div id="ol3-results-section" class="hidden" style="margin-top: 1.5rem;">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Strip Weights &amp; Rate Levels
+          </h2>
+          <div class="table-wrap" style="max-height: 420px; overflow-y: auto;">
+            <table id="ol3-results-table">
+              <thead>
+                <tr>
+                  <th>PY</th>
+                  <th>#</th>
+                  <th>Segment (Dates)</th>
+                  <th>Days</th>
+                  <th>Weight</th>
+                  <th>Rate Level</th>
+                  <th>Wt Ã— Level</th>
+                </tr>
+              </thead>
+              <tbody id="ol3-results-body"></tbody>
+            </table>
           </div>
         </div>
 
-        <!-- Two-step factor breakdown (hidden by default) -->
-        <div id="two-step-kpi-row" class="kpi-row hidden" style="margin-top:0;">
-          <div class="kpi-card">
-            <span class="kpi-label">Current Factor</span>
-            <span class="kpi-value" id="trend-kpi-current-factor">—</span>
+        <!-- Summary Table -->
+        <div id="ol3-summary-section" class="hidden" style="margin-top: 1.5rem;">
+          <h2 class="panel-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            On-Level Factor Summary
+          </h2>
+          <div class="table-wrap">
+            <table id="ol3-summary-table">
+              <thead>
+                <tr>
+                  <th>Policy Year</th>
+                  <th>Weighted Avg Level</th>
+                  <th>Current Level</th>
+                  <th>OL Factor</th>
+                  <th>Days in Year</th>
+                  <th>Hist. Premium ($)</th>
+                  <th>On-Level Premium ($)</th>
+                </tr>
+              </thead>
+              <tbody id="ol3-summary-body"></tbody>
+            </table>
           </div>
-          <div class="kpi-card">
-            <span class="kpi-label">Projected Factor</span>
-            <span class="kpi-value" id="trend-kpi-projected-factor">—</span>
-          </div>
-        </div>
-
-        <!-- Trend Chart -->
-        <div class="chart-section" style="margin-top: 1.5rem;">
-            <canvas id="trend-chart"></canvas>
         </div>
 
         <!-- Audit Trail -->
-        <div class="audit-section" style="margin-top: 1.5rem;">
+        <div id="ol3-audit-section" class="hidden" style="margin-top: 1.5rem;">
           <h2 class="panel-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Trend Audit Trail
+            Audit Trail
           </h2>
-          <div id="trend-audit-trail" class="audit-trail">
-            <p class="empty-msg">Loss trend audit trail will appear here.</p>
-          </div>
-        </div>
-
-        <!-- Trend Portfolio Results -->
-        <div id="trend-portfolio-section" class="portfolio-section hidden">
-          <h2 class="panel-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            Trend Portfolio Results
-          </h2>
-          <button id="btn-download-trend-portfolio" class="btn btn-sm btn-accent">Download CSV</button>
-          <div class="table-wrap" style="max-height: 250px; overflow-y: auto;">
-            <table id="trend-portfolio-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Base Loss</th>
-                  <th>Trend Factor</th>
-                  <th>Trended Value</th>
-                  <th>Impact</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="trend-portfolio-body"></tbody>
-            </table>
-          </div>
+          <div id="ol3-audit-trail" class="audit-trail"></div>
         </div>
       </section>
     </main>
   </div>
 
-
-
-  <!-- ───────── SUMMARY PANEL ───────── -->
-  <div id="summary-panel" class="summary-panel hidden" style="display: none;">
-    <div class="summary-inner">
-      <div class="summary-item">
-        <span class="summary-label">On-Level Result</span>
-        <span class="summary-value" id="summary-onlevel">—</span>
-      </div>
-      <div class="summary-sep"></div>
-      <div class="summary-item">
-        <span class="summary-label">Trended Result</span>
-        <span class="summary-value" id="summary-trend">—</span>
-      </div>
-    </div>
-  </div>
-
   <footer id="app-footer">
-    <p>&copy; 2026 Actuarial Platform &middot; Multi-Module Actuarial Analysis</p>
+    <p>&copy; 2026 Actuarial Platform &middot; On-Level Calculator</p>
   </footer>
 
-  <script src="app.js?v=7.2"></script>
+  <script src="onlevel2.js?v=2.0"></script>
+  <script src="onlevel3.js?v=2.0"></script>
+  <script src="app.js?v=10.0"></script>
 </body>
 </html>
